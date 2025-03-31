@@ -1,0 +1,19 @@
+{
+  "name": "wynnsdk",
+  "version": "0.0.1",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sebastien-Moraz/WynnSDK.git"
+  },
+  "author": "Sebastien Moraz",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Sebastien-Moraz/WynnSDK/issues"
+  },
+  "homepage": "https://github.com/Sebastien-Moraz/WynnSDK#readme",
+  "description": ""
+}
