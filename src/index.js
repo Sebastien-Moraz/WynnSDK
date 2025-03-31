@@ -2,6 +2,8 @@ import PlayerController from "./modules/PlayerController.js";
 import GuildController from "./modules/GuildController.js";
 import ItemController from "./modules/ItemController.js";
 import LeaderboardController from "./modules/LeaderboardController.js";
+import AbilityController from "./modules/AbilityController.js";
+import AscpectController from "./modules/AscpectController.js";
 
 globalThis.sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -11,6 +13,8 @@ export default class WynnSDK {
 		this.guild = new GuildController();
 		this.item = new ItemController();
 		this.leaderboard = new LeaderboardController();
+		this.ability = new AbilityController();
+		this.aspect = new AscpectController();
 	}
 }
 
@@ -34,6 +38,9 @@ export default class WynnSDK {
 	console.log(await sdk.item.getItemMetadata());
 	console.log(await sdk.leaderboard.getLeaderboard("guildLevel"));
 	console.log(await sdk.leaderboard.getLeaderboard("guildLevel", 10));
-	console.log(await sdk.leaderboard.getLeaderboardCategories());*/
+	console.log(await sdk.leaderboard.getLeaderboardCategories());
+	console.log(await sdk.aspect.getAspectList("warrior"));
+	console.log(await sdk.ability.getAbilityTree("warrior"));
+	console.log(await sdk.ability.getAbilityMap("warrior"));*/
 	
 })();
