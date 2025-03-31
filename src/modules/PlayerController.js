@@ -39,4 +39,9 @@ export default class PlayerController {
 		const url = `${this.api.url}/player?identifier=${identifier}${server ? `&server=${server}` : ""}`;
 		return await this.api.request(url);
 	}
+
+	async getPlayerLocations() {
+		const url = `${this.api.url}/map/locations/player`;
+		return await this.api.request(url, { cacheTime: 15 });
+	}
 }
