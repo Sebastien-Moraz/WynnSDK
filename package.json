@@ -1,7 +1,7 @@
 {
   "name": "wynnsdk",
   "version": "0.1.0",
-    "description": "A JavaScript SDK for the Wynncraft API",
+    "description": "An unofficial JavaScript SDK for the Wynncraft API",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
