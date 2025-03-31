@@ -3,7 +3,9 @@ import GuildController from "./modules/GuildController.js";
 import ItemController from "./modules/ItemController.js";
 import LeaderboardController from "./modules/LeaderboardController.js";
 import AbilityController from "./modules/AbilityController.js";
-import AscpectController from "./modules/AscpectController.js";
+import AspectController from "./modules/AspectController.js";
+import MapController from "./modules/MapController.js";
+import QuestController from "./modules/QuestController.js";
 
 globalThis.sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -14,7 +16,9 @@ export default class WynnSDK {
 		this.item = new ItemController();
 		this.leaderboard = new LeaderboardController();
 		this.ability = new AbilityController();
-		this.aspect = new AscpectController();
+		this.aspect = new AspectController();
+		this.map = new MapController();
+		this.quest = new QuestController();
 	}
 }
 
@@ -41,6 +45,9 @@ export default class WynnSDK {
 	console.log(await sdk.leaderboard.getLeaderboardCategories());
 	console.log(await sdk.aspect.getAspectList("warrior"));
 	console.log(await sdk.ability.getAbilityTree("warrior"));
-	console.log(await sdk.ability.getAbilityMap("warrior"));*/
+	console.log(await sdk.ability.getAbilityMap("warrior"));
+	console.log(await sdk.player.getPlayerLocations());
+	console.log(await sdk.map.getMapMarkers());
+	console.log(await sdk.quest.getQuestCount());*/
 	
 })();
