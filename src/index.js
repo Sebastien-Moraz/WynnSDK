@@ -8,6 +8,7 @@ import MapController from "./modules/MapController.js";
 import QuestController from "./modules/QuestController.js";
 import ApiCaller from "./modules/ApiCaller.js";
 import ClassController from "./modules/ClassController.js";
+import NewsController from "./modules/NewsController.js";
 
 globalThis.sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -23,6 +24,7 @@ export default class WynnSDK {
 		this.map = new MapController();
 		this.quest = new QuestController();
 		this.class = new ClassController();
+		this.news = new NewsController();
 	}
 	
 	async search(query) {
@@ -30,36 +32,3 @@ export default class WynnSDK {
 		return await this.api.request(url);
 	}
 }
-
-(async () => {
-	const sdk = new WynnSDK();
-	/*console.log(await sdk.player.getWhoami());
-	console.log(await sdk.player.getPlayer("Myiro"));
-	console.log(await sdk.player.getPlayerFullStats("Myiro"));
-	console.log(await sdk.player.getPlayerCharacters("Myiro"));
-	console.log(await sdk.player.getPlayerCharacter("Myiro", "d3d5ad24-b1c5-4626-9587-3dc0c6c5345f"));
-	console.log(await sdk.player.getPlayerCharacterAbilities("Myiro", "d3d5ad24-b1c5-4626-9587-3dc0c6c5345f"));
-	console.log(await sdk.player.getPlayersOnline("uuid"));
-	console.log(await sdk.guild.getGuild("Forgotten Library"));
-	console.log(await sdk.guild.getGuildByPrefix("FGL"));
-	console.log(await sdk.guild.getGuildList());
-	console.log(await sdk.guild.getGuildTerritoryList());
-	console.log(await sdk.item.getItemList());
-	console.log(await sdk.item.getItemList(2));
-	console.log(await sdk.item.getItemFullList());
-	console.log(await sdk.item.searchItem("Idol"));
-	console.log(await sdk.item.getItemMetadata());
-	console.log(await sdk.leaderboard.getLeaderboard("guildLevel"));
-	console.log(await sdk.leaderboard.getLeaderboard("guildLevel", 10));
-	console.log(await sdk.leaderboard.getLeaderboardCategories());
-	console.log(await sdk.aspect.getAspectList("warrior"));
-	console.log(await sdk.ability.getAbilityTree("warrior"));
-	console.log(await sdk.ability.getAbilityMap("warrior"));
-	console.log(await sdk.player.getPlayerLocations());
-	console.log(await sdk.map.getMapMarkers());
-	console.log(await sdk.quest.getQuestCount());
-	console.log(await sdk.search("Idol"));
-	console.log(await sdk.class.getClassList());
-	console.log(await sdk.class.getClass("warrior"));*/
-	
-})();
