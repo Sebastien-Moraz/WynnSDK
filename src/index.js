@@ -7,6 +7,7 @@ import AspectController from "./modules/AspectController.js";
 import MapController from "./modules/MapController.js";
 import QuestController from "./modules/QuestController.js";
 import ApiCaller from "./modules/ApiCaller.js";
+import ClassController from "./modules/ClassController.js";
 
 globalThis.sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -21,11 +22,12 @@ export default class WynnSDK {
 		this.aspect = new AspectController();
 		this.map = new MapController();
 		this.quest = new QuestController();
+		this.class = new ClassController();
 	}
 	
 	async search(query) {
 		const url = `${this.api.url}/search/${query}`;
-		const response = await this.api.request(url);
+		return await this.api.request(url);
 	}
 }
 
@@ -55,6 +57,9 @@ export default class WynnSDK {
 	console.log(await sdk.ability.getAbilityMap("warrior"));
 	console.log(await sdk.player.getPlayerLocations());
 	console.log(await sdk.map.getMapMarkers());
-	console.log(await sdk.quest.getQuestCount());*/
+	console.log(await sdk.quest.getQuestCount());
+	console.log(await sdk.search("Idol"));
+	console.log(await sdk.class.getClassList());
+	console.log(await sdk.class.getClass("warrior"));*/
 	
 })();
