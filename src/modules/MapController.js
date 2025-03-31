@@ -1,13 +1,12 @@
 import ApiCaller from "./ApiCaller.js";
 
-export default class AspectController {
+export default class MapController {
 	constructor() {
 		this.api = ApiCaller.getInstance();
 	}
-
-	async getAspectList(className) {
-		const url = `${this.api.url}/aspects/${className}`;
+	
+	async getMapMarkers() {
+		const url = `${this.api.url}/map/locations/markers`;
 		return await this.api.request(url);
 	}
 }
-	
