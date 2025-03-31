@@ -21,7 +21,7 @@ export default class ApiCaller {
 		this.headers = {
 			'Content-Type': 'application/json',
 			'Accept': 'application/json',
-			'User-Agent': 'WynnSDK/0.1.0'
+			'User-Agent': 'WynnSDK/0.1.1'
 		};
 		this.cache = new Map();
 	}

@@ -1,7 +1,7 @@
 {
   "name": "wynnsdk",
-  "version": "0.1.0",
-    "description": "An unofficial JavaScript SDK for the Wynncraft API",
+  "version": "0.1.1",
+  "description": "An unofficial JavaScript SDK for the Wynncraft API",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
@@ -17,5 +17,8 @@
   "bugs": {
     "url": "https://github.com/Sebastien-Moraz/WynnSDK/issues"
   },
-  "homepage": "https://github.com/Sebastien-Moraz/WynnSDK#readme"
+  "homepage": "https://github.com/Sebastien-Moraz/WynnSDK#readme",
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  }
 }

@@ -43,18 +43,8 @@ WynnSDK implements an intelligent caching system to:
 - Improve response times
 
 Cache durations:
-- Player data: 60 seconds
-- Guild data: 120 seconds
-- Server list: 30 seconds
-- Item data: 24 hours
-- Territory data: 30 seconds
 
-The cache is automatically managed, but you can force a fresh API call when needed:
-
-```javascript
-// Force fresh data from API
-const freshPlayerData = await sdk.getPlayer('PlayerName', { forceFresh: true });
-```
+The cache duration is automaticly determinate with header of the request.
 
 ## Documentation
 
