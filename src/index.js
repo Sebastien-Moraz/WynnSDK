@@ -1,6 +1,7 @@
 import PlayerController from "./modules/PlayerController.js";
 import GuildController from "./modules/GuildController.js";
 import ItemController from "./modules/ItemController.js";
+import LeaderboardController from "./modules/LeaderboardController.js";
 
 globalThis.sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -9,6 +10,7 @@ export default class WynnSDK {
 		this.player = new PlayerController();
 		this.guild = new GuildController();
 		this.item = new ItemController();
+		this.leaderboard = new LeaderboardController();
 	}
 }
 
@@ -29,6 +31,9 @@ export default class WynnSDK {
 	console.log(await sdk.item.getItemList(2));
 	console.log(await sdk.item.getItemFullList());
 	console.log(await sdk.item.searchItem("Idol"));
-	console.log(await sdk.item.getItemMetadata());*/
+	console.log(await sdk.item.getItemMetadata());
+	console.log(await sdk.leaderboard.getLeaderboard("guildLevel"));
+	console.log(await sdk.leaderboard.getLeaderboard("guildLevel", 10));
+	console.log(await sdk.leaderboard.getLeaderboardCategories());*/
 	
 })();
