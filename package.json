@@ -1,9 +1,12 @@
 {
   "name": "wynnsdk",
-  "version": "0.0.1",
-  "main": "index.js",
+  "version": "0.1.0",
+    "description": "An unofficial JavaScript SDK for the Wynncraft API",
+  "main": "src/index.js",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/index.js",
+    "test": "jest"
   },
   "repository": {
     "type": "git",
@@ -14,6 +17,5 @@
   "bugs": {
     "url": "https://github.com/Sebastien-Moraz/WynnSDK/issues"
   },
-  "homepage": "https://github.com/Sebastien-Moraz/WynnSDK#readme",
-  "description": ""
+  "homepage": "https://github.com/Sebastien-Moraz/WynnSDK#readme"
 }
