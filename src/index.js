@@ -26,7 +26,12 @@ export default class WynnSDK {
 		this.class = new ClassController();
 		this.news = new NewsController();
 	}
-	
+
+	/**
+	 * make a global search
+	 * @param query {string} The search query (e.g., "Idol", "Myiro", "Forgotten Library", etc.)
+	 * @returns {Promise<Object>} The search results
+	 */
 	async search(query) {
 		const url = `${this.api.url}/search/${query}`;
 		return await this.api.request(url);
