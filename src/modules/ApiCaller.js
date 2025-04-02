@@ -1,5 +1,5 @@
 import fetch from 'node-fetch';
-
+import pkg from '../../package.json' with { type: 'json' };
 
 export default class ApiCaller {
 	static instance = null;
@@ -21,7 +21,7 @@ export default class ApiCaller {
 		this.headers = {
 			'Content-Type': 'application/json',
 			'Accept': 'application/json',
-			'User-Agent': 'WynnSDK/0.1.1'
+			'User-Agent': 'WynnSDK/' + pkg.version,
 		};
 		this.cache = new Map();
 	}
