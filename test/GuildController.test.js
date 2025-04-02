@@ -46,7 +46,7 @@ describe("GuildController", () => {
 		);
 	});
 	
-	test("getGuild shoulld handle errors correctly", async () => {
+	test("getGuild should handle errors correctly", async () => {
 		// GIVEN
 		const mockError = new Error("Network error");
 		mockApiCaller.request.mockRejectedValue(mockError);
