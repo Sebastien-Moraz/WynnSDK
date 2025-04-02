@@ -1,3 +1,5 @@
+<img src="https://koppa.pro/dl/WynnSDK.png" alt="WynnSDK" width="350" style="border-radius: 10px; margin: 20px auto; display: block;">
+
 # WynnSDK
 
 An unofficial JavaScript SDK for the Wynncraft API, providing easy access to Wynncraft game data with built-in caching support.
@@ -32,7 +34,7 @@ const guildInfo = await sdk.getGuild('GuildName');
 const itemInfo = await sdk.searchItem('Legendary Spear');
 
 // Get live player and guild, party, friend locations
-const territories = await sdk.getPlayerLocations();
+const playerLiveData = await sdk.getPlayerLocations();
 ```
 
 ## Caching System

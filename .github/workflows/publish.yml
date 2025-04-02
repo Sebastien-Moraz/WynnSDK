@@ -49,6 +49,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      - name: Configure Git
+        run: |
+          git config --global user.name "Sebastien-Moraz"
+          git config --global user.email "sebastien@moraz.net"
+
       - name: Create GitHub tag
         run: |
           VERSION=${{ env.version }}
