@@ -29,3 +29,20 @@ jobs:
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Get commit messages
+        id: commits
+        run: |
+          echo "::set-output name=messages::$(git log --pretty=format:'* %s' -n 10)"
+
+      - name: Create GitHub tag
+        id: tag
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          IMAGE_URL="https://example.com/image.png"
+          COMMIT_MESSAGES="${{ steps.commits.outputs.messages }}"
+          TAG_MESSAGE="![Image]($IMAGE_URL)\n\n## Release Notes\n\n${COMMIT_MESSAGES}"
+          git tag -a "v$VERSION" -m "$TAG_MESSAGE"
+          git push origin "v$VERSION"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
