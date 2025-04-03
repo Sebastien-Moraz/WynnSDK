@@ -63,7 +63,7 @@ export default class PlayerController {
 	 */
 	async getWhoami() {
 		const url = `${this.api.url}/player/whoami`;
-		return await this.api.request(url, { cacheTime: 5 });
+		return await this.api.request(url, {cacheTime: 5});
 	}
 
 	/**
@@ -83,6 +83,36 @@ export default class PlayerController {
 	 */
 	async getPlayerLocations() {
 		const url = `${this.api.url}/map/locations/player`;
-		return await this.api.request(url, { cacheTime: 15 });
+		return await this.api.request(url, {cacheTime: 15});
+	}
+
+	/**
+	 * Get the list of hunters in the same server as the specified player
+	 * @warning This method makes a lot of requests to the API, so use it with caution
+	 * @param usernameOrUUID {string} - The username or UUID of the player connected with your public IP address
+	 * @returns {Promise<Awaited<null|{activeCharacter}|Object>[]>} - The list of hunters in the same server
+	 */
+	async getHuntersInSameServer(usernameOrUUID) {
+		const loggedPlayers = await this.getPlayerLocations();
+		const targetPlayer = loggedPlayers.find(player =>
+			player.name === usernameOrUUID || player.uuid === usernameOrUUID
+		);
+		if (!targetPlayer) {
+			throw new Error('Player not found');
+		}
+		const players = await this.getPlayersOnline("uuid", targetPlayer.server);
+		const hunters = await Promise.all(
+			Object.keys(players.players).map(async (uuid) => {
+				const playerData = await this.getPlayerFullStats(uuid);
+				if (!playerData.activeCharacter) return null;
+
+				const characterData = await this.getPlayerCharacter(uuid, playerData.activeCharacter);
+				if (!characterData?.gamemode?.some(mode => mode === "hunted")) return null;
+
+				playerData.character = characterData;
+				return playerData;
+			})
+		);
+		return hunters.filter(Boolean);
 	}
 }
