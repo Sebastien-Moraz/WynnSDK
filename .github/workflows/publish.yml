@@ -40,27 +40,3 @@ jobs:
         run: |
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> $GITHUB_ENV
-
-  publish-tag:
-    runs-on: ubuntu-latest
-    needs: publish-npm
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Configure Git
-        run: |
-          git config --global user.name "Sebastien-Moraz"
-          git config --global user.email "sebastien@moraz.net"
-
-      - name: Create GitHub tag
-        run: |
-          VERSION=${{ env.version }}
-          IMAGE_URL="https://example.com/image.png"
-          COMMIT_MESSAGES=${{ env.messages }}
-          TAG_MESSAGE="![Image]($IMAGE_URL)\n\n## Release Notes\n\n${COMMIT_MESSAGES}"
-          git tag -a "v$VERSION" -m "$TAG_MESSAGE"
-          git push origin "v$VERSION"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
