@@ -5,6 +5,7 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
+    "dev": "node src/test.js",
     "start": "node src/index.js",
     "test": "node --experimental-vm-modules --no-warnings node_modules/jest/bin/jest.js"
   },
