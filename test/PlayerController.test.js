@@ -1,6 +1,6 @@
 import PlayerController from '../src/modules/PlayerController.js';
 import ApiCaller from '../src/modules/ApiCaller.js';
-import {beforeEach, describe, expect, jest, test} from '@jest/globals';
+import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 
 jest.mock('../src/modules/ApiCaller.js');
 
@@ -42,7 +42,7 @@ describe('PlayerController', () => {
 
 		// THEN
 		expect(mockApiCaller.request).toHaveBeenCalledWith(
-			'http://test-api.com/player/testPlayer?fullStats=true'
+			'http://test-api.com/player/testPlayer?fullResult'
 		);
 	});
 
