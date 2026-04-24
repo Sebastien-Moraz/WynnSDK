@@ -20,7 +20,7 @@ export default class ItemController {
 	 * @returns {Promise<Object>} - The full list of items
 	 */
 	async getItemFullList() {
-		const url = `${this.api.url}/item/database?fullResults=true`;
+		const url = `${this.api.url}/item/database?fullResult`;
 		return await this.api.request(url);
 	}
 
@@ -42,6 +42,6 @@ export default class ItemController {
 		const url = `${this.api.url}/item/metadata`;
 		return await this.api.request(url);
 	}
-	
+
 	//TODO: add advanced search
 }

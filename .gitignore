@@ -6,6 +6,7 @@ yarn-error.log*
 
 # Tests
 coverage/
+src/test.js
 
 # IDE
 .idea/

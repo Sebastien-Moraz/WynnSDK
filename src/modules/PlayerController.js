@@ -21,7 +21,7 @@ export default class PlayerController {
 	 * @returns {Promise<Object>} - The full player data
 	 */
 	async getPlayerFullStats(usernameOrUUID) {
-		const url = `${this.api.url}/player/${usernameOrUUID}?fullStats=true`;
+		const url = `${this.api.url}/player/${usernameOrUUID}?fullResult`;
 		return await this.api.request(url);
 	}
 
