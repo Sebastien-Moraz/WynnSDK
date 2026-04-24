@@ -1,5 +1,4 @@
 import ApiCaller from "./ApiCaller.js";
-
 export default class PlayerController {
 	constructor() {
 		this.api = ApiCaller.getInstance();
@@ -63,7 +62,7 @@ export default class PlayerController {
 	 */
 	async getWhoami() {
 		const url = `${this.api.url}/player/whoami`;
-		return await this.api.request(url, {cacheTime: 5});
+		return await this.api.request(url, { cacheTime: 5 });
 	}
 
 	/**
@@ -83,7 +82,7 @@ export default class PlayerController {
 	 */
 	async getPlayerLocations() {
 		const url = `${this.api.url}/map/locations/player`;
-		return await this.api.request(url, {cacheTime: 15});
+		return await this.api.request(url, { cacheTime: 15 });
 	}
 
 	/**

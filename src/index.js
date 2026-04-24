@@ -13,8 +13,17 @@ import NewsController from "./modules/NewsController.js";
 globalThis.sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 export default class WynnSDK {
-	constructor() {
+	/**
+	 * @param token {string} The token of the user
+	 */
+	constructor(token = null) {
 		this.api = ApiCaller.getInstance();
+		if (token) {
+			this.api.headers['Authorization'] = "Bearer " + token;
+			this.api.rateLimit = 120;
+		} else {
+			this.api.rateLimit = 50;
+		}
 		this.player = new PlayerController();
 		this.guild = new GuildController();
 		this.item = new ItemController();
@@ -37,3 +46,7 @@ export default class WynnSDK {
 		return await this.api.request(url);
 	}
 }
+
+const sdk = new WynnSDK("5Iawm75D4ANlLpga7McdNGk5Drand4BXf7MLvdd9Qv0");
+const hunters = await sdk.player.getHuntersInSameServer("Myiro");
+console.log(hunters);
