@@ -28,7 +28,32 @@ export default class ApiCaller {
 		this.requestTimestamps = [];
 	}
 
+	sweepCache() {
+		const now = Date.now();
+		for (const [key, value] of this.cache.entries()) {
+			if (value.expires <= now) {
+				this.cache.delete(key);
+			}
+		}
+		
+		if (this.cache.size > 500) {
+			const keysToDelete = this.cache.size - 500;
+			let i = 0;
+			for (const key of this.cache.keys()) {
+				if (i++ < keysToDelete) {
+					this.cache.delete(key);
+				} else {
+					break;
+				}
+			}
+		}
+	}
+
 	async request(url, options = {}) {
+		if (this.cache.size > 100) {
+			this.sweepCache();
+		}
+
 		if (this.cache.has(url)) {
 			const cached = this.cache.get(url);
 			if (cached.expires > Date.now()) {

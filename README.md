@@ -2,7 +2,7 @@
 
 # WynnSDK
 
-An unofficial JavaScript SDK for the Wynncraft API, providing easy access to Wynncraft game data with built-in caching support.
+Unofficial SDK for the Wynncraft API with built-in caching support (Fruma update supported)
 
 ## Installation
 

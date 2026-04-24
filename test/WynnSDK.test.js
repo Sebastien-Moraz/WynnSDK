@@ -51,4 +51,22 @@ describe('WynnSDK', () => {
 			'http://test-api.com/search/test query'
 		);
 	});
+
+	test('globalThis.sleep should wait for specified time', async () => {
+		jest.useFakeTimers();
+		const sleepPromise = globalThis.sleep(100);
+		
+		jest.advanceTimersByTime(50);
+		let resolved = false;
+		sleepPromise.then(() => { resolved = true; });
+		
+		await Promise.resolve();
+		expect(resolved).toBe(false);
+		
+		jest.advanceTimersByTime(50);
+		await Promise.resolve();
+		await sleepPromise;
+		
+		jest.useRealTimers();
+	});
 }); 
