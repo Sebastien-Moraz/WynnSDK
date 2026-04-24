@@ -140,10 +140,22 @@ export default class ApiCaller {
 			}
 
 			if (!response.ok) {
-				throw new Error(`Error: ${response.status} ${response.statusText}: ${(await response.json())["Error"]}`);
+				let errorMessage = "";
+				try {
+					const errorJson = await response.json();
+					errorMessage = errorJson.Error || JSON.stringify(errorJson);
+				} catch (e) {
+					errorMessage = "Non-JSON error response";
+				}
+				throw new Error(`Error: ${response.status} ${response.statusText}: ${errorMessage}`);
 			}
 
-			const data = await response.json();
+			let data;
+			try {
+				data = await response.json();
+			} catch (e) {
+				throw new Error(`Error: ${response.status} ${response.statusText}: Invalid JSON response`);
+			}
 			console.log("URL: ", url, "status", response.status, "remaining: ", rRemaining, "reset: ", rReset);
 			let cacheTime = 0;
 			if (options.cacheTime) {

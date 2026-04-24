@@ -99,17 +99,24 @@ export default class PlayerController {
 		if (!targetPlayer) {
 			throw new Error('Player not found');
 		}
+		if (targetPlayer.server === null) {
+			throw new Error('Player not found on a server');
+		}
 		const players = await this.getPlayersOnline("uuid", targetPlayer.server);
 		const hunters = await Promise.all(
 			Object.keys(players.players).map(async (uuid) => {
-				const playerData = await this.getPlayerFullStats(uuid);
-				if (!playerData.activeCharacter) return null;
+				try {
+					const playerData = await this.getPlayerFullStats(uuid);
+					if (!playerData.activeCharacter) return null;
 
-				const characterData = await this.getPlayerCharacter(uuid, playerData.activeCharacter);
-				if (!characterData?.gamemode?.some(mode => mode === "hunted")) return null;
+					const characterData = await this.getPlayerCharacter(uuid, playerData.activeCharacter);
+					if (!characterData?.gamemode?.some(mode => mode === "hunted")) return null;
 
-				playerData.character = characterData;
-				return playerData;
+					playerData.character = characterData;
+					return playerData;
+				} catch (e) {
+					return null;
+				}
 			})
 		);
 		return hunters.filter(Boolean);
