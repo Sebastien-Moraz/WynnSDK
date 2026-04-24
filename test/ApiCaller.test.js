@@ -202,9 +202,10 @@ describe('ApiCaller', () => {
 			
 			const now = Date.now();
 			jest.setSystemTime(now);
+			apiCaller.rateLimit = 120;
 
 			for (let i = 0; i < 120; i++) {
-				apiCaller.requestTimestamps.push(now - 30000); // 30 seconds ago
+				apiCaller.requestTimestamps['SHARED'].push(now - 30000); // 30 seconds ago
 			}
 			
 			const mockData = { success: true };
