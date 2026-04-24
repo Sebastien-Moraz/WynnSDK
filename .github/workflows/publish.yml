@@ -49,23 +49,10 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Get commit messages
+      - name: Create Git Tag
         if: steps.check_npm.outputs.exists == 'false'
-        id: commits
         run: |
-          {
-            echo 'messages<<EOF'
-            git log --pretty=format:'* %s' -n 10
-            echo
-            echo 'EOF'
-          } >> "$GITHUB_ENV"
-
-      - name: Create GitHub Release
-        if: steps.check_npm.outputs.exists == 'false'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: Release v${{ steps.version.outputs.version }}
-          body: ${{ env.messages }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git tag -a v${{ steps.version.outputs.version }} -m "Version ${{ steps.version.outputs.version }}"
+          git push origin v${{ steps.version.outputs.version }}
