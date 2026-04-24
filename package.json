@@ -1,6 +1,6 @@
 {
   "name": "wynnsdk",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Unofficial SDK for the Wynncraft API with built-in caching support (Fruma update supported)",
   "main": "src/index.js",
   "type": "module",
