@@ -1,8 +1,9 @@
 {
   "name": "wynnsdk",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Unofficial SDK for the Wynncraft API with built-in caching support (Fruma update supported)",
   "main": "src/index.js",
+  "types": "index.d.ts",
   "type": "module",
   "scripts": {
     "dev": "node src/test.js",
@@ -28,5 +29,14 @@
     "@jest/globals": "^29.7.0",
     "babel-jest": "^29.7.0",
     "jest": "^29.7.0"
-  }
+  },
+  "keywords": [
+    "wynncraft",
+    "wynncraft-api",
+    "minecraft",
+    "wrapper",
+    "sdk",
+    "fruma",
+    "api"
+  ]
 }
