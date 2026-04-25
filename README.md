@@ -1,6 +1,9 @@
 <img src="https://koppa.pro/dl/WynnSDK.png" alt="WynnSDK" width="350" style="border-radius: 10px; margin: 20px auto; display: block;">
 
 # WynnSDK
+[![NPM Version](https://img.shields.io/npm/v/wynnsdk.svg)](https://www.npmjs.com/package/wynnsdk)
+[![NPM Downloads](https://img.shields.io/npm/dt/wynnsdk.svg)](https://www.npmjs.com/package/wynnsdk)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Unofficial SDK for the Wynncraft API with built-in caching support (Fruma update supported)
 
