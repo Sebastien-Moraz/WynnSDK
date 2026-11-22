@@ -1,14 +1,10 @@
+import BaseController from "./BaseController.js";
 import { enc, oneOf } from "./encode.js";
 
 const MEMBER_IDENTIFIERS = ['username', 'uuid'];
 const LIST_IDENTIFIERS = ['name', 'uuid'];
 
-export default class GuildController {
-	/** @param api {import('./ApiCaller.js').default} */
-	constructor(api) {
-		this.api = api;
-	}
-
+export default class GuildController extends BaseController {
 	/**
 	 * Get guild information by guild name
 	 * @param guildName {string} The name of the guild
@@ -17,7 +13,7 @@ export default class GuildController {
 	 */
 	async getGuild(guildName, identifier = "username") {
 		oneOf(identifier, MEMBER_IDENTIFIERS, 'identifier');
-		return this.api.request(`${this.api.url}/guild/${enc(guildName, 'guildName')}?identifier=${identifier}`);
+		return this.get(`/guild/${enc(guildName, 'guildName')}?identifier=${identifier}`);
 	}
 
 	/**
@@ -28,7 +24,7 @@ export default class GuildController {
 	 */
 	async getGuildByPrefix(guildPrefix, identifier = "username") {
 		oneOf(identifier, MEMBER_IDENTIFIERS, 'identifier');
-		return this.api.request(`${this.api.url}/guild/prefix/${enc(guildPrefix, 'guildPrefix')}?identifier=${identifier}`);
+		return this.get(`/guild/prefix/${enc(guildPrefix, 'guildPrefix')}?identifier=${identifier}`);
 	}
 
 	/**
@@ -38,7 +34,7 @@ export default class GuildController {
 	 */
 	async getGuildList(identifier = "name") {
 		oneOf(identifier, LIST_IDENTIFIERS, 'identifier');
-		return this.api.request(`${this.api.url}/guild/list/guild?identifier=${identifier}`);
+		return this.get(`/guild/list/guild?identifier=${identifier}`);
 	}
 
 	/**
@@ -46,6 +42,6 @@ export default class GuildController {
 	 * @returns {Promise<Object>} The list of guild territories
 	 */
 	async getGuildTerritoryList() {
-		return this.api.request(`${this.api.url}/guild/list/territory`);
+		return this.get(`/guild/list/territory`);
 	}
 }

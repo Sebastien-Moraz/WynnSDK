@@ -1,17 +1,13 @@
+import BaseController from "./BaseController.js";
 import { enc } from "./encode.js";
 
-export default class ClassController {
-	/** @param api {import('./ApiCaller.js').default} */
-	constructor(api) {
-		this.api = api;
-	}
-
+export default class ClassController extends BaseController {
 	/**
 	 * Get short data for all classes
 	 * @returns {Promise<Object>} The list of all classes with short data
 	 */
 	async getClassList() {
-		return this.api.request(`${this.api.url}/classes`);
+		return this.get(`/classes`);
 	}
 
 	/**
@@ -20,6 +16,6 @@ export default class ClassController {
 	 * @returns {Promise<Object>} All data for the class
 	 */
 	async getClass(className) {
-		return this.api.request(`${this.api.url}/classes/${enc(className, 'className')}`);
+		return this.get(`/classes/${enc(className, 'className')}`);
 	}
 }

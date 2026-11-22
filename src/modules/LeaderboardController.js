@@ -1,11 +1,7 @@
+import BaseController from "./BaseController.js";
 import { enc } from "./encode.js";
 
-export default class LeaderboardController {
-	/** @param api {import('./ApiCaller.js').default} */
-	constructor(api) {
-		this.api = api;
-	}
-
+export default class LeaderboardController extends BaseController {
 	/**
 	 * Get leaderboard data.
 	 * @param category {string} Category of leaderboard (see getLeaderboardCategories)
@@ -16,7 +12,7 @@ export default class LeaderboardController {
 		if (!Number.isInteger(resultLimit) || resultLimit < 1 || resultLimit > 1000) {
 			throw new TypeError('resultLimit must be an integer between 1 and 1000');
 		}
-		return this.api.request(`${this.api.url}/leaderboards/${enc(category, 'category')}?resultLimit=${resultLimit}`);
+		return this.get(`/leaderboards/${enc(category, 'category')}?resultLimit=${resultLimit}`);
 	}
 
 	/**
@@ -24,6 +20,6 @@ export default class LeaderboardController {
 	 * @returns {Promise<string[]>} The list of leaderboard categories
 	 */
 	async getLeaderboardCategories() {
-		return this.api.request(`${this.api.url}/leaderboards/types`);
+		return this.get(`/leaderboards/types`);
 	}
 }

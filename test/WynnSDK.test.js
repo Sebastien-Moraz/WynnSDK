@@ -70,7 +70,7 @@ describe('WynnSDK', () => {
 	});
 
 	test('clearCache clears the instance cache', () => {
-		wynnSDK.api.cache.set('x', { data: 1, expires: Date.now() + 1000 });
+		wynnSDK.api.cache.set('x', 1, 10);
 		wynnSDK.clearCache();
 		expect(wynnSDK.api.cache.size).toBe(0);
 	});

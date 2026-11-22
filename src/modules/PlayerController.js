@@ -1,20 +1,16 @@
+import BaseController from "./BaseController.js";
 import { enc, oneOf } from "./encode.js";
 
 const IDENTIFIERS = ['username', 'uuid'];
 
-export default class PlayerController {
-	/** @param api {import('./ApiCaller.js').default} */
-	constructor(api) {
-		this.api = api;
-	}
-
+export default class PlayerController extends BaseController {
 	/**
 	 * Get player data by username or UUID
 	 * @param usernameOrUUID {string} The username or UUID of the player
 	 * @returns {Promise<Object>} The short player data
 	 */
 	async getPlayer(usernameOrUUID) {
-		return this.api.request(`${this.api.url}/player/${enc(usernameOrUUID, 'usernameOrUUID')}`);
+		return this.get(`/player/${enc(usernameOrUUID, 'usernameOrUUID')}`);
 	}
 
 	/**
@@ -23,7 +19,7 @@ export default class PlayerController {
 	 * @returns {Promise<Object>} The full player data
 	 */
 	async getPlayerFullStats(usernameOrUUID) {
-		return this.api.request(`${this.api.url}/player/${enc(usernameOrUUID, 'usernameOrUUID')}?fullResult`);
+		return this.get(`/player/${enc(usernameOrUUID, 'usernameOrUUID')}?fullResult`);
 	}
 
 	/**
@@ -32,7 +28,7 @@ export default class PlayerController {
 	 * @returns {Promise<Object>} The player characters
 	 */
 	async getPlayerCharacters(usernameOrUUID) {
-		return this.api.request(`${this.api.url}/player/${enc(usernameOrUUID, 'usernameOrUUID')}/characters`);
+		return this.get(`/player/${enc(usernameOrUUID, 'usernameOrUUID')}/characters`);
 	}
 
 	/**
@@ -42,7 +38,7 @@ export default class PlayerController {
 	 * @returns {Promise<Object>} The character data
 	 */
 	async getPlayerCharacter(usernameOrUUID, characterUUID) {
-		return this.api.request(`${this.api.url}/player/${enc(usernameOrUUID, 'usernameOrUUID')}/characters/${enc(characterUUID, 'characterUUID')}`);
+		return this.get(`/player/${enc(usernameOrUUID, 'usernameOrUUID')}/characters/${enc(characterUUID, 'characterUUID')}`);
 	}
 
 	/**
@@ -52,7 +48,7 @@ export default class PlayerController {
 	 * @returns {Promise<Object>} The character abilities
 	 */
 	async getPlayerCharacterAbilities(usernameOrUUID, characterUUID) {
-		return this.api.request(`${this.api.url}/player/${enc(usernameOrUUID, 'usernameOrUUID')}/characters/${enc(characterUUID, 'characterUUID')}/abilities`);
+		return this.get(`/player/${enc(usernameOrUUID, 'usernameOrUUID')}/characters/${enc(characterUUID, 'characterUUID')}/abilities`);
 	}
 
 	/**
@@ -60,7 +56,7 @@ export default class PlayerController {
 	 * @returns {Promise<Object>} The players connected with your public IP address
 	 */
 	async getWhoami() {
-		return this.api.request(`${this.api.url}/player/whoami`, { cacheTime: 5 });
+		return this.get(`/player/whoami`, { cacheTime: 5 });
 	}
 
 	/**
@@ -72,7 +68,7 @@ export default class PlayerController {
 	async getPlayersOnline(identifier = "username", server = null) {
 		oneOf(identifier, IDENTIFIERS, 'identifier');
 		const serverParam = server ? `&server=${enc(server, 'server')}` : "";
-		return this.api.request(`${this.api.url}/player?identifier=${identifier}${serverParam}`);
+		return this.get(`/player?identifier=${identifier}${serverParam}`);
 	}
 
 	/**
@@ -80,7 +76,7 @@ export default class PlayerController {
 	 * @returns {Promise<Object[]>} The player, guild, party and friends locations
 	 */
 	async getPlayerLocations() {
-		return this.api.request(`${this.api.url}/map/locations/player`, { cacheTime: 15 });
+		return this.get(`/map/locations/player`, { cacheTime: 15 });
 	}
 
 	/**

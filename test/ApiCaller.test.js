@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
-import ApiCaller, { parseMaxAge, parseRetryAfter } from '../src/modules/ApiCaller.js';
+import ApiCaller from '../src/modules/ApiCaller.js';
 import WynnApiError from '../src/modules/WynnApiError.js';
 
 const headersFrom = (obj = {}) => ({
@@ -34,13 +34,13 @@ describe('ApiCaller', () => {
 		test('instances are independent (no shared token or cache)', () => {
 			const a = new ApiCaller({ token: 'secret', fetch: fetchMock });
 			const b = new ApiCaller({ fetch: fetchMock });
-			a.cache.set('url', { data: 1, expires: Date.now() + 1000 });
+			a.cache.set('url', 1, 10);
 
 			expect(a.headers['Authorization']).toBe('Bearer secret');
 			expect(b.headers['Authorization']).toBeUndefined();
 			expect(b.cache.has('url')).toBe(false);
-			expect(a.rateLimits.SHARED).toBe(120);
-			expect(b.rateLimits.SHARED).toBe(50);
+			expect(a.rateLimiter.limits.SHARED).toBe(120);
+			expect(b.rateLimiter.limits.SHARED).toBe(50);
 		});
 
 		test('does not send a Content-Type header on GET requests', () => {
@@ -60,7 +60,7 @@ describe('ApiCaller', () => {
 
 		test('returns cached data if available and not expired', async () => {
 			const cachedData = { cached: true };
-			apiCaller.cache.set('http://test.url', { data: cachedData, expires: Date.now() + 10000 });
+			apiCaller.cache.set('http://test.url', cachedData, 10);
 
 			const result = await apiCaller.request('http://test.url');
 			expect(fetchMock).not.toHaveBeenCalled();
@@ -68,7 +68,7 @@ describe('ApiCaller', () => {
 		});
 
 		test('returned data is a copy: mutating it does not alter the cache', async () => {
-			apiCaller.cache.set('http://test.url', { data: { a: 1 }, expires: Date.now() + 10000 });
+			apiCaller.cache.set('http://test.url', { a: 1 }, 10);
 
 			const first = await apiCaller.request('http://test.url');
 			first.a = 999;
@@ -80,7 +80,7 @@ describe('ApiCaller', () => {
 
 		test('clears cache and fetches if cache is expired', async () => {
 			const mockData = { fresh: true };
-			apiCaller.cache.set('http://test.url', { data: { cached: true }, expires: Date.now() - 10000 });
+			apiCaller.cache.entries.set('http://test.url', { data: { cached: true }, expires: Date.now() - 10000 });
 			fetchMock.mockResolvedValue(okResponse(mockData));
 
 			const result = await apiCaller.request('http://test.url');
@@ -179,7 +179,7 @@ describe('ApiCaller', () => {
 			fetchMock.mockResolvedValue(okResponse({}, { 'cache-control': 'max-age=60', 'age': '10' }));
 
 			await apiCaller.request('http://test.url');
-			expect(apiCaller.cache.get('http://test.url').expires).toBe(now + 50000);
+			expect(apiCaller.cache.entries.get('http://test.url').expires).toBe(now + 50000);
 		});
 
 		test('does not cache when Age exceeds max-age', async () => {
@@ -190,7 +190,7 @@ describe('ApiCaller', () => {
 		});
 
 		test('clearCache empties the cache', () => {
-			apiCaller.cache.set('url', { data: 1, expires: Date.now() + 1000 });
+			apiCaller.cache.set('url', 1, 10);
 			apiCaller.clearCache();
 			expect(apiCaller.cache.size).toBe(0);
 		});
@@ -251,13 +251,20 @@ describe('ApiCaller', () => {
 			expect(fetchMock).toHaveBeenCalledTimes(3);
 		});
 
+		test('uses the bucket of the requested API path', async () => {
+			fetchMock.mockResolvedValue(okResponse({}));
+			await apiCaller.request(`${apiCaller.url}/guild/x`);
+			expect(apiCaller.rateLimiter.timestamps.GUILD).toHaveLength(1);
+			expect(apiCaller.rateLimiter.timestamps.SHARED).toHaveLength(0);
+		});
+
 		test('respects internal rate limit', async () => {
 			jest.useFakeTimers();
 			const now = Date.now();
 			jest.setSystemTime(now);
-			apiCaller.rateLimits.SHARED = 120;
+			apiCaller.rateLimiter.limits.SHARED = 120;
 			for (let i = 0; i < 120; i++) {
-				apiCaller.requestTimestamps.SHARED.push(now - 30000);
+				apiCaller.rateLimiter.timestamps.SHARED.push(now - 30000);
 			}
 			fetchMock.mockResolvedValue(okResponse({ success: true }));
 
@@ -279,74 +286,8 @@ describe('ApiCaller', () => {
 			}));
 
 			await apiCaller.request(`${apiCaller.url}/player/Salted`);
-			expect(apiCaller.rateLimits.PLAYER).toBe(80);
-			expect(apiCaller.rateLimits.GUILD).toBe(50);
-		});
-
-		test('classifies URLs into buckets', () => {
-			expect(apiCaller.getBucket(`${apiCaller.url}/player/x`)).toBe('PLAYER');
-			expect(apiCaller.getBucket(`${apiCaller.url}/guild/x`)).toBe('GUILD');
-			expect(apiCaller.getBucket(`${apiCaller.url}/item/search/x`)).toBe('ITEMS');
-			expect(apiCaller.getBucket(`${apiCaller.url}/leaderboards/x`)).toBe('LEADERBOARDS');
-			expect(apiCaller.getBucket(`${apiCaller.url}/map/quests`)).toBe('MAP');
-			expect(apiCaller.getBucket(`${apiCaller.url}/search/x`)).toBe('SHARED');
-		});
-	});
-
-	describe('header parsing helpers', () => {
-		test('parseMaxAge', () => {
-			expect(parseMaxAge('max-age=60')).toBe(60);
-			expect(parseMaxAge('public, max-age=300')).toBe(300);
-			expect(parseMaxAge('s-maxage=10, max-age=60')).toBe(60);
-			expect(parseMaxAge('no-store')).toBe(0);
-			expect(parseMaxAge(null)).toBe(0);
-		});
-
-		test('parseRetryAfter', () => {
-			expect(parseRetryAfter('5')).toBe(5000);
-			expect(parseRetryAfter(null)).toBeNull();
-			expect(parseRetryAfter('garbage')).toBeNull();
-			const future = new Date(Date.now() + 30000).toUTCString();
-			expect(parseRetryAfter(future)).toBeGreaterThan(25000);
-		});
-	});
-
-	describe('cache memory management', () => {
-		test('sweepCache removes expired items', () => {
-			apiCaller.cache.set('url1', { data: 1, expires: Date.now() - 1000 });
-			apiCaller.cache.set('url2', { data: 2, expires: Date.now() + 10000 });
-
-			apiCaller.sweepCache();
-
-			expect(apiCaller.cache.has('url1')).toBe(false);
-			expect(apiCaller.cache.has('url2')).toBe(true);
-		});
-
-		test('sweepCache removes oldest items if cache size exceeds 500', () => {
-			for (let i = 0; i < 600; i++) {
-				apiCaller.cache.set(`url${i}`, { data: i, expires: Date.now() + 10000 });
-			}
-
-			apiCaller.sweepCache();
-
-			expect(apiCaller.cache.size).toBe(500);
-			expect(apiCaller.cache.has('url99')).toBe(false);
-			expect(apiCaller.cache.has('url100')).toBe(true);
-		});
-
-		test('request triggers sweepCache only if cache size > 100', async () => {
-			const sweepSpy = jest.spyOn(apiCaller, 'sweepCache');
-			fetchMock.mockResolvedValue(okResponse({}));
-
-			for (let i = 0; i < 100; i++) {
-				apiCaller.cache.set(`url${i}`, { data: i, expires: Date.now() + 10000 });
-			}
-			await apiCaller.request('http://new.url');
-			expect(sweepSpy).not.toHaveBeenCalled();
-
-			apiCaller.cache.set('url100', { data: 100, expires: Date.now() + 10000 });
-			await apiCaller.request('http://new2.url');
-			expect(sweepSpy).toHaveBeenCalledTimes(1);
+			expect(apiCaller.rateLimiter.limits.PLAYER).toBe(80);
+			expect(apiCaller.rateLimiter.limits.GUILD).toBe(50);
 		});
 	});
 });

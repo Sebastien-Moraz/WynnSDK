@@ -1,18 +1,14 @@
+import BaseController from "./BaseController.js";
 import { enc } from "./encode.js";
 
-export default class AbilityController {
-	/** @param api {import('./ApiCaller.js').default} */
-	constructor(api) {
-		this.api = api;
-	}
-
+export default class AbilityController extends BaseController {
 	/**
 	 * Get all data for a specific ability tree
 	 * @param className {string} The name of the class (e.g., "warrior", "mage")
 	 * @returns {Promise<Object>} The ability tree of the class
 	 */
 	async getAbilityTree(className) {
-		return this.api.request(`${this.api.url}/ability/tree/${enc(className, 'className')}`);
+		return this.get(`/ability/tree/${enc(className, 'className')}`);
 	}
 
 	/**
@@ -21,6 +17,6 @@ export default class AbilityController {
 	 * @returns {Promise<Object>} The ability map of the class
 	 */
 	async getAbilityMap(className) {
-		return this.api.request(`${this.api.url}/ability/map/${enc(className, 'className')}`);
+		return this.get(`/ability/map/${enc(className, 'className')}`);
 	}
 }
