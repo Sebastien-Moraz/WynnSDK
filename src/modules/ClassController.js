@@ -1,26 +1,21 @@
-import ApiCaller from "./ApiCaller.js";
+import BaseController from "./BaseController.js";
+import { enc } from "./encode.js";
 
-export default class ClassController {
-	constructor() {
-		this.api = ApiCaller.getInstance();
-	}
-
+export default class ClassController extends BaseController {
 	/**
 	 * Get short data for all classes
 	 * @returns {Promise<Object>} The list of all classes with short data
 	 */
 	async getClassList() {
-		const url = `${this.api.url}/classes`;
-		return await this.api.request(url);
+		return this.get(`/classes`);
 	}
 
 	/**
 	 * Get all data for a specific class
 	 * @param className {string} The name of the class (e.g., "warrior", "mage")
-	 * @returns {Promise<Object>} all data for the class
+	 * @returns {Promise<Object>} All data for the class
 	 */
 	async getClass(className) {
-		const url = `${this.api.url}/classes/${className}`;
-		return await this.api.request(url);
+		return this.get(`/classes/${enc(className, 'className')}`);
 	}
 }

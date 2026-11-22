@@ -1,8 +1,6 @@
 import MapController from "../src/modules/MapController.js";
-import ApiCaller from '../src/modules/ApiCaller.js';
 import {beforeEach, describe, expect, jest, test} from '@jest/globals';
 
-jest.mock('../src/modules/ApiCaller.js');
 
 describe('MapController', () => {
 	let mapController;
@@ -14,8 +12,7 @@ describe('MapController', () => {
 			url: 'http://test-api.com',
 			request: jest.fn()
 		};
-		ApiCaller.getInstance = jest.fn().mockReturnValue(mockApiCaller);
-		mapController = new MapController();
+		mapController = new MapController(mockApiCaller);
 	});
 
 	test('getMapMarkers should call API correctly', async () => {

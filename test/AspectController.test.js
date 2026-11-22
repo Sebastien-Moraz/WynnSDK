@@ -1,8 +1,6 @@
 import AspectController from '../src/modules/AspectController';
-import ApiCaller from '../src/modules/ApiCaller';
 import {beforeEach, describe, expect, jest, test} from '@jest/globals';
 
-jest.mock('../src/modules/ApiCaller');
 
 describe('AspectController', () => {
 	let aspectController;
@@ -14,8 +12,7 @@ describe('AspectController', () => {
 			url: 'http://test-api.com',
 			request: jest.fn()
 		};
-		ApiCaller.getInstance = jest.fn().mockReturnValue(mockApiCaller);
-		aspectController = new AspectController();
+		aspectController = new AspectController(mockApiCaller);
 	});
 
 	test('getAspectList should call API correctly', async () => {

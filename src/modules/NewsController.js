@@ -1,16 +1,11 @@
-import ApiCaller from "./ApiCaller.js";
+import BaseController from "./BaseController.js";
 
-export default class NewsController {
-	constructor() {
-		this.api = ApiCaller.getInstance();
-	}
-
+export default class NewsController extends BaseController {
 	/**
 	 * Get the latest news
 	 * @returns {Promise<Object[]>} The list of latest news
 	 */
 	async getNews() {
-		const url = `${this.api.url}/latest-news`;
-		return await this.api.request(url);
+		return this.get(`/latest-news`);
 	}
 }

@@ -1,186 +1,141 @@
-import fetch from 'node-fetch';
-import pkg from '../../package.json' with { type: 'json' };
+import WynnApiError from "./WynnApiError.js";
+import ResponseCache from "./ResponseCache.js";
+import RateLimiter, { WINDOW_MS, sleep } from "./RateLimiter.js";
+import { cacheTtlFromHeaders, parseRetryAfter } from "./headers.js";
+import { VERSION } from "../version.js";
 
+export const API_URL = 'https://api.wynncraft.com/v3';
+
+/**
+ * HTTP client for the Wynncraft API: authentication, caching, rate limiting,
+ * retries on 429, timeouts and error normalisation.
+ */
 export default class ApiCaller {
-	static instance = null;
-	static allowConstruction = false;
-	static getInstance() {
-		if (this.instance === null) {
-			this.allowConstruction = true;
-			this.instance = new ApiCaller();
+	/**
+	 * @param options {Object}
+	 * @param options.token {string|null} Wynncraft API token
+	 * @param options.timeout {number} Request timeout in ms (default 10000)
+	 * @param options.maxRetries {number} Max retries on HTTP 429 (default 3)
+	 * @param options.debug {boolean} Log each request with console.debug (default false)
+	 * @param options.fetch {Function} Custom fetch implementation (default globalThis.fetch)
+	 */
+	constructor({ token = null, timeout = 10000, maxRetries = 3, debug = false, fetch = globalThis.fetch } = {}) {
+		if (typeof fetch !== 'function') {
+			throw new Error('No fetch implementation available. WynnSDK requires Node.js >= 22.');
 		}
-		return this.instance;
-	}
-
-	constructor() {
-		if (!ApiCaller.allowConstruction) {
-			throw new Error('This class is a singleton and cannot be instantiated directly.');
-		}
-		ApiCaller.allowConstruction = false;
-		this.url = 'https://api.wynncraft.com/v3';
-		this.rateLimit = 50;
+		this.url = API_URL;
+		this.timeout = timeout;
+		this.maxRetries = maxRetries;
+		this.debug = debug;
+		this.fetch = fetch;
 		this.headers = {
-			'Content-Type': 'application/json',
 			'Accept': 'application/json',
-			'User-Agent': 'WynnSDK/' + pkg.version,
+			'User-Agent': 'WynnSDK/' + VERSION,
 		};
-		this.cache = new Map();
-		this.requestTimestamps = {
-			SHARED: [],
-			PLAYER: [],
-			GUILD: [],
-			ITEMS: [],
-			LEADERBOARDS: [],
-			MAP: []
-		};
+		if (token) {
+			this.headers['Authorization'] = 'Bearer ' + token;
+		}
+		this.rateLimiter = new RateLimiter(token ? 120 : 50);
+		this.cache = new ResponseCache();
+		/** @type {Map<string, Promise<any>>} */
+		this.inFlight = new Map();
 	}
 
-	sweepCache() {
-		const now = Date.now();
-		for (const [key, value] of this.cache.entries()) {
-			if (value.expires <= now) {
-				this.cache.delete(key);
-			}
-		}
-
-		if (this.cache.size > 500) {
-			const keysToDelete = this.cache.size - 500;
-			let i = 0;
-			for (const key of this.cache.keys()) {
-				if (i++ < keysToDelete) {
-					this.cache.delete(key);
-				} else {
-					break;
-				}
-			}
-		}
+	/** Remove every cached response. */
+	clearCache() {
+		this.cache.clear();
 	}
 
+	/**
+	 * Perform a GET request with caching, deduplication and rate limiting.
+	 * Returned data is a copy: mutating it does not affect the cache.
+	 * @param url {string}
+	 * @param options {{cacheTime?: number}} cacheTime overrides the Cache-Control TTL (seconds)
+	 * @returns {Promise<any>}
+	 */
 	async request(url, options = {}) {
-		if (this.cache.size > 100) {
-			this.sweepCache();
+		const cached = this.cache.get(url);
+		if (cached.hit) {
+			return cached.data;
 		}
 
-		if (this.cache.has(url)) {
-			const cached = this.cache.get(url);
-			if (cached.expires > Date.now()) {
-				return cached.data;
-			} else {
-				this.cache.delete(url);
-			}
+		let pending = this.inFlight.get(url);
+		if (!pending) {
+			pending = this.#fetchWithRetry(url).then(({ data, headers }) => {
+				this.cache.set(url, data, options.cacheTime || cacheTtlFromHeaders(headers));
+				return data;
+			}).finally(() => this.inFlight.delete(url));
+			this.inFlight.set(url, pending);
 		}
+		return structuredClone(await pending);
+	}
 
-		let bucket = 'SHARED';
-		if (url.startsWith(this.url)) {
-			const path = url.slice(this.url.length);
-			if (path.startsWith('/player/')) bucket = 'PLAYER';
-			else if (path.startsWith('/guild/')) bucket = 'GUILD';
-			else if (path.startsWith('/item/')) bucket = 'ITEMS';
-			else if (path.startsWith('/leaderboards/')) bucket = 'LEADERBOARDS';
-			else if (path.startsWith('/map/')) bucket = 'MAP';
-		}
+	#bucketFor(url) {
+		return url.startsWith(this.url) ? RateLimiter.bucketFor(url.slice(this.url.length)) : 'SHARED';
+	}
 
-		while (true) {
-			while (true) {
-				const now = Date.now();
-				this.requestTimestamps[bucket] = this.requestTimestamps[bucket].filter(time => now - time < 60000);
-				if (this.requestTimestamps[bucket].length < this.rateLimit) {
-					this.requestTimestamps[bucket].push(now);
-					break;
-				}
-				const oldest = this.requestTimestamps[bucket][0];
-				const waitTime = 60000 - (now - oldest) + 100;
-				await new Promise(resolve => setTimeout(resolve, waitTime));
+	async #fetchWithRetry(url) {
+		const bucket = this.#bucketFor(url);
+
+		for (let attempt = 0; ; attempt++) {
+			await this.rateLimiter.acquire(bucket);
+			const response = await this.#send(url);
+			this.rateLimiter.sync(response.headers, bucket);
+
+			if (response.status !== 429) {
+				return { data: await this.#parse(url, response), headers: response.headers };
 			}
-
-			const response = await fetch(url, {
-				method: 'GET',
-				headers: this.headers
-			});
-
-			const rBucketHeader = response.headers?.get('ratelimit-bucket');
-			const rBucket = rBucketHeader ? rBucketHeader.toUpperCase() : bucket;
-			const rRemaining = response.headers?.get('ratelimit-remaining');
-			const rReset = response.headers?.get('ratelimit-reset');
-			const rLimit = response.headers?.get('ratelimit-limit');
-
-			if (rBucket && rRemaining && rReset && rLimit) {
-				const remaining = parseInt(rRemaining);
-				const reset = parseInt(rReset);
-				const limit = parseInt(rLimit);
-
-				this.rateLimit = limit;
-
-				if (this.requestTimestamps[rBucket]) {
-					const now = Date.now();
-					this.requestTimestamps[rBucket] = this.requestTimestamps[rBucket].filter(time => now - time < 60000);
-					const localRemaining = limit - this.requestTimestamps[rBucket].length;
-
-					if (remaining < localRemaining) {
-						const gap = localRemaining - remaining;
-						const fakeTimestamp = now - (60000 - reset * 1000);
-						for (let i = 0; i < gap; i++) {
-							this.requestTimestamps[rBucket].push(fakeTimestamp);
-						}
-						this.requestTimestamps[rBucket].sort((a, b) => a - b);
-					}
-				}
+			if (attempt >= this.maxRetries) {
+				throw new WynnApiError(`Rate limited (429) after ${attempt + 1} attempts`, { url, status: 429 });
 			}
-
-			if (response.status === 429) {
-				const retryAfter = response.headers?.get('Retry-After');
-				let waitTime = 60000;
-				if (retryAfter) {
-					waitTime = (parseInt(retryAfter) * 1000) + 1000;
-				} else if (rReset) {
-					waitTime = (parseInt(rReset) * 1000) + 1000;
-				}
-				await new Promise(resolve => setTimeout(resolve, waitTime));
-				continue;
-			}
-
-			if (!response.ok) {
-				let errorMessage = "";
-				try {
-					const errorJson = await response.json();
-					errorMessage = errorJson.Error || JSON.stringify(errorJson);
-				} catch (e) {
-					errorMessage = "Non-JSON error response";
-				}
-				throw new Error(`Error: ${response.status} ${response.statusText}: ${errorMessage}`);
-			}
-
-			let data;
-			try {
-				data = await response.json();
-			} catch (e) {
-				throw new Error(`Error: ${response.status} ${response.statusText}: Invalid JSON response`);
-			}
-			console.log("URL: ", url, "status", response.status, "remaining: ", rRemaining, "reset: ", rReset);
-			let cacheTime = 0;
-			if (options.cacheTime) {
-				cacheTime = options.cacheTime;
-			} else {
-				cacheTime = response.headers?.get('cache-control');
-				let age = response.headers?.get('Age');
-				if (cacheTime) {
-					cacheTime = parseInt(cacheTime.split('=')[1]);
-					if (age) {
-						cacheTime -= parseInt(age);
-					}
-				} else {
-					cacheTime = 0;
-				}
-			}
-			if (cacheTime > 0) {
-				this.cache.set(url, {
-					data: data,
-					expires: Date.now() + cacheTime * 1000
-				});
-			}
-
-			return data;
+			const waitTime = parseRetryAfter(response.headers?.get('retry-after'))
+				?? parseRetryAfter(response.headers?.get('ratelimit-reset'))
+				?? WINDOW_MS;
+			await sleep(waitTime + 1000);
 		}
 	}
 
+	async #send(url) {
+		let response;
+		try {
+			response = await this.fetch(url, {
+				method: 'GET',
+				headers: this.headers,
+				signal: AbortSignal.timeout(this.timeout),
+			});
+		} catch (e) {
+			const reason = e?.name === 'TimeoutError'
+				? `Request timed out after ${this.timeout}ms`
+				: `Network error: ${e?.message ?? e}`;
+			throw new WynnApiError(reason, { url, cause: e });
+		}
+
+		if (this.debug) {
+			console.debug('[WynnSDK]', response.status, url,
+				'remaining:', response.headers?.get('ratelimit-remaining'),
+				'reset:', response.headers?.get('ratelimit-reset'));
+		}
+		return response;
+	}
+
+	async #parse(url, response) {
+		if (!response.ok) {
+			let body = null;
+			let message = 'Non-JSON error response';
+			try {
+				body = await response.json();
+				message = body?.Error ?? body?.error ?? JSON.stringify(body);
+			} catch {
+				// keep default message
+			}
+			const status = [response.status, response.statusText].filter(Boolean).join(' ');
+			throw new WynnApiError(`${status}: ${message}`, { url, status: response.status, body });
+		}
+
+		try {
+			return await response.json();
+		} catch (e) {
+			throw new WynnApiError(`${response.status}: Invalid JSON response`, { url, status: response.status, cause: e });
+		}
+	}
 }

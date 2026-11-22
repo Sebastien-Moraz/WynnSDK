@@ -1,8 +1,6 @@
 import QuestController from '../src/modules/QuestController.js';
-import ApiCaller from '../src/modules/ApiCaller.js';
 import {beforeEach, describe, expect, jest, test} from '@jest/globals';
 
-jest.mock('../src/modules/ApiCaller.js');
 
 describe('QuestController', () => {
 	let questController;
@@ -14,8 +12,7 @@ describe('QuestController', () => {
 			url: 'http://test-api.com',
 			request: jest.fn()
 		};
-		ApiCaller.getInstance = jest.fn().mockReturnValue(mockApiCaller);
-		questController = new QuestController();
+		questController = new QuestController(mockApiCaller);
 	});
 
 	test('getQuestCount should call API correctly', async () => {

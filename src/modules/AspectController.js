@@ -1,18 +1,13 @@
-import ApiCaller from "./ApiCaller.js";
+import BaseController from "./BaseController.js";
+import { enc } from "./encode.js";
 
-export default class AspectController {
-	constructor() {
-		this.api = ApiCaller.getInstance();
-	}
-
+export default class AspectController extends BaseController {
 	/**
-	 * Get all data for a specific aspect by class name
+	 * Get all aspects of a class
 	 * @param className {string} The name of the class (e.g., "warrior", "mage")
-	 * @returns {Promise<Object>} The list of aspects for the class
+	 * @returns {Promise<Object[]>} The list of aspects for the class
 	 */
 	async getAspectList(className) {
-		const url = `${this.api.url}/aspects/${className}`;
-		return await this.api.request(url);
+		return this.get(`/aspects/${enc(className, 'className')}`);
 	}
 }
-	

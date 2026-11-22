@@ -9,40 +9,47 @@ import QuestController from "./modules/QuestController.js";
 import ApiCaller from "./modules/ApiCaller.js";
 import ClassController from "./modules/ClassController.js";
 import NewsController from "./modules/NewsController.js";
-
-globalThis.sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+import WynnApiError from "./modules/WynnApiError.js";
+import { enc } from "./modules/encode.js";
 
 export default class WynnSDK {
 	/**
-	 * @param token {string} The token of the user
+	 * @param tokenOrOptions {string|null|{token?: string|null, timeout?: number, maxRetries?: number, debug?: boolean, fetch?: Function}}
+	 *   Either the API token, or an options object.
+	 * @param options {{timeout?: number, maxRetries?: number, debug?: boolean, fetch?: Function}} Options (when the first argument is a token)
 	 */
-	constructor(token = null) {
-		this.api = ApiCaller.getInstance();
-		if (token) {
-			this.api.headers['Authorization'] = "Bearer " + token;
-			this.api.rateLimit = 120;
-		} else {
-			this.api.rateLimit = 50;
-		}
-		this.player = new PlayerController();
-		this.guild = new GuildController();
-		this.item = new ItemController();
-		this.leaderboard = new LeaderboardController();
-		this.ability = new AbilityController();
-		this.aspect = new AspectController();
-		this.map = new MapController();
-		this.quest = new QuestController();
-		this.class = new ClassController();
-		this.news = new NewsController();
+	constructor(tokenOrOptions = null, options = {}) {
+		const opts = (tokenOrOptions !== null && typeof tokenOrOptions === 'object')
+			? { ...tokenOrOptions }
+			: { ...options, token: tokenOrOptions };
+
+		// Each SDK instance has its own token, cache and rate limiter.
+		this.api = new ApiCaller(opts);
+		this.player = new PlayerController(this.api);
+		this.guild = new GuildController(this.api);
+		this.item = new ItemController(this.api);
+		this.leaderboard = new LeaderboardController(this.api);
+		this.ability = new AbilityController(this.api);
+		this.aspect = new AspectController(this.api);
+		this.map = new MapController(this.api);
+		this.quest = new QuestController(this.api);
+		this.class = new ClassController(this.api);
+		this.news = new NewsController(this.api);
 	}
 
 	/**
-	 * make a global search
+	 * Make a global search
 	 * @param query {string} The search query (e.g., "Idol", "Myiro", "Forgotten Library", etc.)
 	 * @returns {Promise<Object>} The search results
 	 */
 	async search(query) {
-		const url = `${this.api.url}/search/${query}`;
-		return await this.api.request(url);
+		return this.api.request(`${this.api.url}/search/${enc(query, 'query')}`);
+	}
+
+	/** Remove every cached response of this instance. */
+	clearCache() {
+		this.api.clearCache();
 	}
 }
+
+export { WynnSDK, WynnApiError };

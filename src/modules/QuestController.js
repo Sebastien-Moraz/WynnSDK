@@ -1,16 +1,11 @@
-import ApiCaller from "./ApiCaller.js";
+import BaseController from "./BaseController.js";
 
-export default class QuestController {
-	constructor() {
-		this.api = ApiCaller.getInstance();
-	}
-
+export default class QuestController extends BaseController {
 	/**
 	 * Get quests count
 	 * @returns {Promise<number>} The number of quests available
 	 */
 	async getQuestCount() {
-		const url = `${this.api.url}/map/quests`;
-		return (await this.api.request(url))["quests"];
+		return (await this.get(`/map/quests`)).quests;
 	}
 }

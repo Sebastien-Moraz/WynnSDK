@@ -1,72 +1,82 @@
-import WynnSDK from '../src/index.js';
+import WynnSDK, { WynnSDK as NamedWynnSDK, WynnApiError } from '../src/index.js';
 import ApiCaller from '../src/modules/ApiCaller.js';
-import {beforeEach, describe, expect, jest, test} from '@jest/globals';
-
-jest.mock('../src/modules/ApiCaller.js');
+import { readFileSync } from 'node:fs';
+import { VERSION } from '../src/version.js';
+import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 
 describe('WynnSDK', () => {
 	let wynnSDK;
-	let mockApiCaller;
 
 	beforeEach(() => {
-		jest.clearAllMocks();
-		mockApiCaller = {
-			url: 'http://test-api.com',
-			request: jest.fn()
-		};
-		ApiCaller.getInstance = jest.fn().mockReturnValue(mockApiCaller);
-		
-
 		wynnSDK = new WynnSDK();
+		wynnSDK.api.request = jest.fn();
 	});
-	
 
-	test('search should call API correctly', async () => {
-		// GIVEN
+	test('exports', () => {
+		expect(NamedWynnSDK).toBe(WynnSDK);
+		expect(new WynnApiError('x', { status: 500 })).toBeInstanceOf(Error);
+	});
+
+	test('controllers share the instance ApiCaller', () => {
+		expect(wynnSDK.api).toBeInstanceOf(ApiCaller);
+		expect(wynnSDK.player.api).toBe(wynnSDK.api);
+		expect(wynnSDK.news.api).toBe(wynnSDK.api);
+	});
+
+	test('each instance has its own token and cache', () => {
+		const withToken = new WynnSDK('secret');
+		const withoutToken = new WynnSDK();
+		expect(withToken.api).not.toBe(withoutToken.api);
+		expect(withToken.api.headers['Authorization']).toBe('Bearer secret');
+		expect(withoutToken.api.headers['Authorization']).toBeUndefined();
+	});
+
+	test('accepts an options object or a token + options', () => {
+		const a = new WynnSDK({ token: 'tok', timeout: 1234, debug: true });
+		expect(a.api.headers['Authorization']).toBe('Bearer tok');
+		expect(a.api.timeout).toBe(1234);
+		expect(a.api.debug).toBe(true);
+
+		const b = new WynnSDK('tok2', { maxRetries: 7 });
+		expect(b.api.headers['Authorization']).toBe('Bearer tok2');
+		expect(b.api.maxRetries).toBe(7);
+	});
+
+	test('does not pollute globalThis', () => {
+		expect(globalThis.sleep).toBeUndefined();
+	});
+
+	test('search encodes the query', async () => {
 		const mockResponse = { results: ['test1', 'test2'] };
-		mockApiCaller.request.mockResolvedValue(mockResponse);
+		wynnSDK.api.request.mockResolvedValue(mockResponse);
 
-		// WHEN
-		const result = await wynnSDK.search('test query');
+		const result = await wynnSDK.search('test query/../x?y#z');
 
-		// THEN
-		expect(mockApiCaller.request).toHaveBeenCalledWith(
-			'http://test-api.com/search/test query'
+		expect(wynnSDK.api.request).toHaveBeenCalledWith(
+			'https://api.wynncraft.com/v3/search/test%20query%2F..%2Fx%3Fy%23z'
 		);
 		expect(result).toEqual(mockResponse);
 	});
 
-	test('search should handle errors correctly', async () => {
-		// GIVEN
+	test('search rejects empty queries', async () => {
+		await expect(wynnSDK.search('')).rejects.toThrow(TypeError);
+		expect(wynnSDK.api.request).not.toHaveBeenCalled();
+	});
+
+	test('search propagates errors', async () => {
 		const mockError = new Error('Network error');
-		mockApiCaller.request.mockRejectedValue(mockError);
-
-		// WHEN
-		await expect(wynnSDK.search('test query')).rejects.toThrow(
-			mockError
-		);
-
-		// THEN
-		expect(mockApiCaller.request).toHaveBeenCalledWith(
-			'http://test-api.com/search/test query'
-		);
+		wynnSDK.api.request.mockRejectedValue(mockError);
+		await expect(wynnSDK.search('test')).rejects.toThrow(mockError);
 	});
 
-	test('globalThis.sleep should wait for specified time', async () => {
-		jest.useFakeTimers();
-		const sleepPromise = globalThis.sleep(100);
-		
-		jest.advanceTimersByTime(50);
-		let resolved = false;
-		sleepPromise.then(() => { resolved = true; });
-		
-		await Promise.resolve();
-		expect(resolved).toBe(false);
-		
-		jest.advanceTimersByTime(50);
-		await Promise.resolve();
-		await sleepPromise;
-		
-		jest.useRealTimers();
+	test('clearCache clears the instance cache', () => {
+		wynnSDK.api.cache.set('x', 1, 10);
+		wynnSDK.clearCache();
+		expect(wynnSDK.api.cache.size).toBe(0);
 	});
-}); 
+
+	test('VERSION matches package.json', () => {
+		const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+		expect(VERSION).toBe(pkg.version);
+	});
+});

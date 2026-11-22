@@ -1,8 +1,6 @@
 import ClassController from "../src/modules/ClassController.js";
-import ApiCaller from "../src/modules/ApiCaller.js";
 import {beforeEach, describe, expect, jest, test} from "@jest/globals";
 
-jest.mock("../src/modules/ApiCaller.js");
 
 describe("ClassController", () => {
 	let classController;
@@ -14,8 +12,7 @@ describe("ClassController", () => {
 			url: "http://test-api.com",
 			request: jest.fn()
 		};
-		ApiCaller.getInstance = jest.fn().mockReturnValue(mockApiCaller);
-		classController = new ClassController();
+		classController = new ClassController(mockApiCaller);
 	});
 	
 	test("getClassList should call API correctly", async () => {
