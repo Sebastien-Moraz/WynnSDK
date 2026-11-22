@@ -5,7 +5,7 @@
 [![NPM Downloads](https://img.shields.io/npm/dt/wynnsdk.svg)](https://www.npmjs.com/package/wynnsdk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Unofficial SDK for the Wynncraft API with built-in caching support (Fruma update supported)
+Unofficial SDK for the [Wynncraft API v3](https://docs.wynncraft.com/) with built-in caching and rate limiting (Fruma update supported).
 
 ## Installation
 
@@ -13,47 +13,65 @@ Unofficial SDK for the Wynncraft API with built-in caching support (Fruma update
 npm install wynnsdk
 ```
 
+Requires **Node.js 22 or newer**. ESM only.
+
 ## Features
 
 - 🚀 Easy-to-use wrapper for the Wynncraft API
-- 💾 Built-in caching system to respect API rate limits
-- ⚡ Promise-based async/await support
+- 💾 Built-in cache based on the API `Cache-Control` headers
+- 🚦 Automatic rate limiting (per bucket) and retry on HTTP 429
+- 🛡️ All parameters are URL-encoded and validated
+- 🧩 TypeScript definitions included
+- ⚡ Promise-based async/await support, no runtime dependencies
 
 ## Usage
 
 ```javascript
-import { WynnSDK } from 'wynnsdk';
+import WynnSDK from 'wynnsdk';
 
-// Initialize the SDK
-const sdk = new WynnSDK();
+// Initialize the SDK (the token is optional)
+const sdk = new WynnSDK(process.env.WYNN_TOKEN);
 
 // Get player information
-const playerInfo = await sdk.getPlayer('PlayerName');
+const player = await sdk.player.getPlayer('PlayerName');
 
 // Get guild information
-const guildInfo = await sdk.getGuild('GuildName');
+const guild = await sdk.guild.getGuild('Forgotten Library');
 
-// Get item information
-const itemInfo = await sdk.searchItem('Legendary Spear');
+// Search items
+const items = await sdk.item.searchItem('Idol');
 
-// Get live player and guild, party, friend locations
-const playerLiveData = await sdk.getPlayerLocations();
+// Global search (players, guilds, items, quests, territories…)
+const results = await sdk.search('Ragni');
+
+// Live locations of the players connected from your IP address
+const locations = await sdk.player.getPlayerLocations();
 ```
 
-## Caching System
+### Error handling
 
-WynnSDK implements an intelligent caching system to:
-- Respect Wynncraft API rate limits
-- Reduce API calls for frequently requested data
-- Improve response times
+```javascript
+import WynnSDK, { WynnApiError } from 'wynnsdk';
 
-Cache durations:
+try {
+	await sdk.player.getPlayer('UnknownPlayer');
+} catch (e) {
+	if (e instanceof WynnApiError && e.status === 404) {
+		console.log('Player not found');
+	}
+}
+```
 
-The cache duration is automaticly determinate with header of the request.
+## Caching & rate limits
+
+- Cache duration is determined automatically from the `Cache-Control` / `Age` headers of each response.
+- Requests are throttled locally per API bucket (50 req/min without token, 120 with a token) and synchronised with the `ratelimit-*` headers.
+- On HTTP 429, the SDK waits for `Retry-After` and retries (up to `maxRetries`, default 3).
+- Each `WynnSDK` instance has its own token, cache and rate limiter.
 
 ## Documentation
 
-Full documentation will be available soon.
+See [documentation.md](documentation.md) for the full list of methods and options.
 
 ## Contributing
 
@@ -61,9 +79,10 @@ Contributions are welcome! Feel free to:
 
 1. Fork the project
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+3. Run the tests (`npm test`) and the type check (`npm run typecheck`)
+4. Commit your changes (`git commit -m 'Add amazing feature'`)
+5. Push to the branch (`git push origin feature/amazing-feature`)
+6. Open a Pull Request
 
 ## License
 
@@ -77,9 +96,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [GitHub Repository](https://github.com/Sebastien-Moraz/WynnSDK)
 - [Issues](https://github.com/Sebastien-Moraz/WynnSDK/issues)
+- [Wynncraft API documentation](https://docs.wynncraft.com/)
 
 ## Support
 
 If you encounter any problems or have questions, please:
 - Open an [issue](https://github.com/Sebastien-Moraz/WynnSDK/issues)
-- Contact the author through GitHub 
+- Contact the author through GitHub
