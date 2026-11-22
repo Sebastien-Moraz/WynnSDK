@@ -1,16 +1,14 @@
-import ApiCaller from "./ApiCaller.js";
-
 export default class MapController {
-	constructor() {
-		this.api = ApiCaller.getInstance();
+	/** @param api {import('./ApiCaller.js').default} */
+	constructor(api) {
+		this.api = api;
 	}
 
 	/**
-	 * Get all map locations markers
-	 * @returns {Promise<Object>} The list of all map locations markers
+	 * Get all map location markers
+	 * @returns {Promise<Object[]>} The list of all map location markers
 	 */
 	async getMapMarkers() {
-		const url = `${this.api.url}/map/locations/markers`;
-		return await this.api.request(url);
+		return this.api.request(`${this.api.url}/map/locations/markers`);
 	}
 }

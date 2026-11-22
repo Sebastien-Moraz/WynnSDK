@@ -1,48 +1,51 @@
-import ApiCaller from "./ApiCaller.js";
+import { enc, oneOf } from "./encode.js";
+
+const MEMBER_IDENTIFIERS = ['username', 'uuid'];
+const LIST_IDENTIFIERS = ['name', 'uuid'];
 
 export default class GuildController {
-	constructor() {
-		this.api = ApiCaller.getInstance();
+	/** @param api {import('./ApiCaller.js').default} */
+	constructor(api) {
+		this.api = api;
 	}
 
 	/**
 	 * Get guild information by guild name
-	 * @param guildName {string} - The name of the guild
-	 * @param identifier {string} - The identifier type for player (username or uuid)
-	 * @returns {Promise<Object>} - The guild data
+	 * @param guildName {string} The name of the guild
+	 * @param identifier {"username"|"uuid"} The identifier type used for members
+	 * @returns {Promise<Object>} The guild data
 	 */
 	async getGuild(guildName, identifier = "username") {
-		const url = `${this.api.url}/guild/${guildName}?identifier=${identifier}`;
-		return await this.api.request(url);
+		oneOf(identifier, MEMBER_IDENTIFIERS, 'identifier');
+		return this.api.request(`${this.api.url}/guild/${enc(guildName, 'guildName')}?identifier=${identifier}`);
 	}
 
 	/**
 	 * Get guild information by guild prefix
-	 * @param guildPrefix {string} - The prefix of the guild
-	 * @param identifier {string} - The identifier type for player (username or uuid)
-	 * @returns {Promise<Object>} - The guild data
+	 * @param guildPrefix {string} The prefix of the guild
+	 * @param identifier {"username"|"uuid"} The identifier type used for members
+	 * @returns {Promise<Object>} The guild data
 	 */
 	async getGuildByPrefix(guildPrefix, identifier = "username") {
-		const url = `${this.api.url}/guild/prefix/${guildPrefix}?identifier=${identifier}`;
-		return await this.api.request(url);
+		oneOf(identifier, MEMBER_IDENTIFIERS, 'identifier');
+		return this.api.request(`${this.api.url}/guild/prefix/${enc(guildPrefix, 'guildPrefix')}?identifier=${identifier}`);
 	}
 
 	/**
-	 * Get guilds list by name or uuid
-	 * @param identifier {string} - The identifier type for player (name or uuid)
-	 * @returns {Promise<Object>} - The list of guilds
+	 * Get the list of all guilds
+	 * @param identifier {"name"|"uuid"} The key used for each guild
+	 * @returns {Promise<Object>} The list of guilds
 	 */
 	async getGuildList(identifier = "name") {
-		const url = `${this.api.url}/guild/list/guild?identifier=${identifier}`;
-		return await this.api.request(url);
+		oneOf(identifier, LIST_IDENTIFIERS, 'identifier');
+		return this.api.request(`${this.api.url}/guild/list/guild?identifier=${identifier}`);
 	}
 
 	/**
 	 * Get guild territory list
-	 * @returns {Promise<Object>} - The list of guild territories
+	 * @returns {Promise<Object>} The list of guild territories
 	 */
 	async getGuildTerritoryList() {
-		const url = `${this.api.url}/guild/list/territory`;
-		return await this.api.request(url);
+		return this.api.request(`${this.api.url}/guild/list/territory`);
 	}
 }

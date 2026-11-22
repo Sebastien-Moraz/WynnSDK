@@ -1,8 +1,6 @@
 import NewsController from '../src/modules/NewsController.js';
-import ApiCaller from '../src/modules/ApiCaller.js';
 import {beforeEach, describe, expect, jest, test} from '@jest/globals';
 
-jest.mock('../src/modules/ApiCaller.js');
 
 describe('NewsController', () => {
 	let newsController;
@@ -14,8 +12,7 @@ describe('NewsController', () => {
 			url: 'http://test-api.com',
 			request: jest.fn()
 		};
-		ApiCaller.getInstance = jest.fn().mockReturnValue(mockApiCaller);
-		newsController = new NewsController();
+		newsController = new NewsController(mockApiCaller);
 	});
 
 	test('getNews should call API correctly', async () => {

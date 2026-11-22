@@ -1,8 +1,6 @@
 import ItemController from "../src/modules/ItemController.js";
-import ApiCaller from "../src/modules/ApiCaller.js";
 import { beforeEach, describe, expect, jest, test } from "@jest/globals";
 
-jest.mock("../src/modules/ApiCaller.js");
 
 describe("ItemController", () => {
 	let itemController;
@@ -14,8 +12,7 @@ describe("ItemController", () => {
 			url: "http://test-api.com",
 			request: jest.fn()
 		};
-		ApiCaller.getInstance = jest.fn().mockReturnValue(mockApiCaller);
-		itemController = new ItemController();
+		itemController = new ItemController(mockApiCaller);
 	});
 
 	test("getItemList should call API correctly", async () => {

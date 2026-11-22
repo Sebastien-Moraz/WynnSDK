@@ -1,9 +1,7 @@
 import LeaderboardController from "../src/modules/LeaderboardController";
-import ApiCaller from "../src/modules/ApiCaller";
 import {beforeEach, describe, expect, jest, test} from '@jest/globals';
 
 
-jest.mock('../src/modules/ApiCaller.js');
 
 describe("LeaderboardController", () => {
 	let leaderboardController;
@@ -15,8 +13,7 @@ describe("LeaderboardController", () => {
 			url: "http://test-api.com",
 			request: jest.fn()
 		};
-		ApiCaller.getInstance = jest.fn().mockReturnValue(mockApiCaller);
-		leaderboardController = new LeaderboardController();
+		leaderboardController = new LeaderboardController(mockApiCaller);
 	});
 
 	test("getLeaderboard should call API correctly", async () => {
@@ -91,5 +88,12 @@ describe("LeaderboardController", () => {
 		expect(mockApiCaller.request).toHaveBeenCalledWith(
 			"http://test-api.com/leaderboards/types"
 		);
+	});
+
+	test('validates resultLimit', async () => {
+		await expect(leaderboardController.getLeaderboard('guildLevel', 0)).rejects.toThrow(TypeError);
+		await expect(leaderboardController.getLeaderboard('guildLevel', 1001)).rejects.toThrow(TypeError);
+		await expect(leaderboardController.getLeaderboard('guildLevel', '10&x=1')).rejects.toThrow(TypeError);
+		expect(mockApiCaller.request).not.toHaveBeenCalled();
 	});
 });

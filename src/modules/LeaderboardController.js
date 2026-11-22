@@ -1,27 +1,29 @@
-import ApiCaller from "./ApiCaller.js";
+import { enc } from "./encode.js";
 
 export default class LeaderboardController {
-	constructor() {
-		this.api = ApiCaller.getInstance();
+	/** @param api {import('./ApiCaller.js').default} */
+	constructor(api) {
+		this.api = api;
 	}
 
 	/**
 	 * Get leaderboard data.
-	 * @param category {string} category of leaderboard (get from getLeaderboardCategories)
-	 * @param resultLimit {number} limit of results to return (default 100, max 1000)
-	 * @returns {Promise<Object>} - The leaderboard data
+	 * @param category {string} Category of leaderboard (see getLeaderboardCategories)
+	 * @param resultLimit {number} Number of results to return (default 100, max 1000)
+	 * @returns {Promise<Object>} The leaderboard data
 	 */
 	async getLeaderboard(category, resultLimit = 100) {
-		const url = `${this.api.url}/leaderboards/${category}?resultLimit=${resultLimit}`;
-		return await this.api.request(url);
+		if (!Number.isInteger(resultLimit) || resultLimit < 1 || resultLimit > 1000) {
+			throw new TypeError('resultLimit must be an integer between 1 and 1000');
+		}
+		return this.api.request(`${this.api.url}/leaderboards/${enc(category, 'category')}?resultLimit=${resultLimit}`);
 	}
 
 	/**
 	 * Get all leaderboard categories.
-	 * @returns {Promise<Object>} - The list of leaderboard categories
+	 * @returns {Promise<string[]>} The list of leaderboard categories
 	 */
 	async getLeaderboardCategories() {
-		const url = `${this.api.url}/leaderboards/types`;
-		return await this.api.request(url);
+		return this.api.request(`${this.api.url}/leaderboards/types`);
 	}
 }

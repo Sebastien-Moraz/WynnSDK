@@ -1,8 +1,6 @@
 import PlayerController from '../src/modules/PlayerController.js';
-import ApiCaller from '../src/modules/ApiCaller.js';
 import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 
-jest.mock('../src/modules/ApiCaller.js');
 
 describe('PlayerController', () => {
 	let playerController;
@@ -14,8 +12,7 @@ describe('PlayerController', () => {
 			url: 'http://test-api.com',
 			request: jest.fn()
 		};
-		ApiCaller.getInstance = jest.fn().mockReturnValue(mockApiCaller);
-		playerController = new PlayerController();
+		playerController = new PlayerController(mockApiCaller);
 	});
 
 	test('getPlayer should call API correctly', async () => {
@@ -223,4 +220,41 @@ describe('PlayerController', () => {
 			expect(playerController.getPlayersOnline).toHaveBeenCalledWith('uuid', 'WC1');
 		});
 	});
-}); 
+
+	describe('input sanitization', () => {
+		test('encodes path traversal and query injection attempts', async () => {
+			mockApiCaller.request.mockResolvedValue({});
+			await playerController.getPlayer('../guild/Evil?identifier=uuid#');
+			expect(mockApiCaller.request).toHaveBeenCalledWith(
+				'http://test-api.com/player/..%2Fguild%2FEvil%3Fidentifier%3Duuid%23'
+			);
+		});
+
+		test('encodes the server parameter', async () => {
+			mockApiCaller.request.mockResolvedValue({});
+			await playerController.getPlayersOnline('uuid', 'EU1&x=1');
+			expect(mockApiCaller.request).toHaveBeenCalledWith(
+				'http://test-api.com/player?identifier=uuid&server=EU1%26x%3D1'
+			);
+		});
+
+		test('rejects invalid identifiers and empty names', async () => {
+			await expect(playerController.getPlayersOnline('evil&x=1')).rejects.toThrow(TypeError);
+			await expect(playerController.getPlayer('')).rejects.toThrow(TypeError);
+			await expect(playerController.getPlayer(undefined)).rejects.toThrow(TypeError);
+			expect(mockApiCaller.request).not.toHaveBeenCalled();
+		});
+	});
+
+	test('getHuntersInSameServer does not mutate the fetched player data', async () => {
+		const fullStats = { activeCharacter: 'char-3' };
+		jest.spyOn(playerController, 'getPlayerLocations').mockResolvedValue([{ name: 'p', uuid: 'u', server: 'WC1' }]);
+		jest.spyOn(playerController, 'getPlayersOnline').mockResolvedValue({ players: { 'uuid-3': 'h' } });
+		jest.spyOn(playerController, 'getPlayerFullStats').mockResolvedValue(fullStats);
+		jest.spyOn(playerController, 'getPlayerCharacter').mockResolvedValue({ gamemode: ['hunted'] });
+
+		const hunters = await playerController.getHuntersInSameServer('p');
+		expect(hunters[0].character).toEqual({ gamemode: ['hunted'] });
+		expect(fullStats).toEqual({ activeCharacter: 'char-3' });
+	});
+});

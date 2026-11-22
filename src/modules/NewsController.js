@@ -1,8 +1,7 @@
-import ApiCaller from "./ApiCaller.js";
-
 export default class NewsController {
-	constructor() {
-		this.api = ApiCaller.getInstance();
+	/** @param api {import('./ApiCaller.js').default} */
+	constructor(api) {
+		this.api = api;
 	}
 
 	/**
@@ -10,7 +9,6 @@ export default class NewsController {
 	 * @returns {Promise<Object[]>} The list of latest news
 	 */
 	async getNews() {
-		const url = `${this.api.url}/latest-news`;
-		return await this.api.request(url);
+		return this.api.request(`${this.api.url}/latest-news`);
 	}
 }

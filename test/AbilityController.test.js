@@ -1,8 +1,6 @@
 import AbilityController from '../src/modules/AbilityController.js';
-import ApiCaller from '../src/modules/ApiCaller.js';
 import {beforeEach, describe, expect, jest, test} from '@jest/globals';
 
-jest.mock('../src/modules/ApiCaller.js');
 
 describe('AbilityController', () => {
 	let abilityController;
@@ -14,8 +12,7 @@ describe('AbilityController', () => {
 			url: 'http://test-api.com',
 			request: jest.fn()
 		};
-		ApiCaller.getInstance = jest.fn().mockReturnValue(mockApiCaller);
-		abilityController = new AbilityController();
+		abilityController = new AbilityController(mockApiCaller);
 	});
 
 	test('getAbilityTree should call API correctly', async () => {

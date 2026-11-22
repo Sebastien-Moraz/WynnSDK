@@ -1,307 +1,352 @@
-import { beforeEach, afterEach, describe, expect, jest, test } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
+import ApiCaller, { parseMaxAge, parseRetryAfter } from '../src/modules/ApiCaller.js';
+import WynnApiError from '../src/modules/WynnApiError.js';
 
-const fetchMock = jest.fn();
-jest.unstable_mockModule('node-fetch', () => ({ default: fetchMock }));
+const headersFrom = (obj = {}) => ({
+	get: jest.fn((name) => {
+		const key = Object.keys(obj).find(k => k.toLowerCase() === name.toLowerCase());
+		return key === undefined ? null : obj[key];
+	})
+});
 
-const { default: ApiCaller } = await import('../src/modules/ApiCaller.js');
+const okResponse = (data, headers = {}) => ({
+	status: 200,
+	statusText: 'OK',
+	ok: true,
+	json: jest.fn().mockResolvedValue(data),
+	headers: headersFrom(headers)
+});
 
 describe('ApiCaller', () => {
+	let fetchMock;
+	let apiCaller;
+
 	beforeEach(() => {
-		jest.clearAllMocks();
-		ApiCaller.instance = null;
-		ApiCaller.allowConstruction = false;
+		fetchMock = jest.fn();
+		apiCaller = new ApiCaller({ fetch: fetchMock });
 	});
 
-	describe('Singleton', () => {
-		test('getInstance creates and returns the singleton instance', () => {
-			const instance1 = ApiCaller.getInstance();
-			expect(instance1).toBeInstanceOf(ApiCaller);
-			const instance2 = ApiCaller.getInstance();
-			expect(instance2).toBe(instance1);
+	afterEach(() => {
+		jest.useRealTimers();
+	});
+
+	describe('construction', () => {
+		test('instances are independent (no shared token or cache)', () => {
+			const a = new ApiCaller({ token: 'secret', fetch: fetchMock });
+			const b = new ApiCaller({ fetch: fetchMock });
+			a.cache.set('url', { data: 1, expires: Date.now() + 1000 });
+
+			expect(a.headers['Authorization']).toBe('Bearer secret');
+			expect(b.headers['Authorization']).toBeUndefined();
+			expect(b.cache.has('url')).toBe(false);
+			expect(a.rateLimits.SHARED).toBe(120);
+			expect(b.rateLimits.SHARED).toBe(50);
 		});
 
-		test('constructor throws if instantiated directly', () => {
-			expect(() => new ApiCaller()).toThrow('This class is a singleton and cannot be instantiated directly.');
+		test('does not send a Content-Type header on GET requests', () => {
+			expect(apiCaller.headers['Content-Type']).toBeUndefined();
 		});
 	});
 
 	describe('request', () => {
-		let apiCaller;
-
-		beforeEach(() => {
-			apiCaller = ApiCaller.getInstance();
-		});
-		
-		afterEach(() => {
-			jest.useRealTimers();
-		});
-
 		test('fetches and returns data successfully', async () => {
 			const mockData = { data: 'test' };
-			fetchMock.mockResolvedValue({
-				status: 200,
-				ok: true,
-				json: jest.fn().mockResolvedValue(mockData),
-				headers: { get: jest.fn().mockReturnValue(null) }
-			});
+			fetchMock.mockResolvedValue(okResponse(mockData));
 
 			const result = await apiCaller.request('http://test.url');
-			expect(fetchMock).toHaveBeenCalledWith('http://test.url', expect.any(Object));
+			expect(fetchMock).toHaveBeenCalledWith('http://test.url', expect.objectContaining({ method: 'GET', signal: expect.any(AbortSignal) }));
 			expect(result).toEqual(mockData);
 		});
 
 		test('returns cached data if available and not expired', async () => {
 			const cachedData = { cached: true };
-			apiCaller.cache.set('http://test.url', {
-				data: cachedData,
-				expires: Date.now() + 10000
-			});
+			apiCaller.cache.set('http://test.url', { data: cachedData, expires: Date.now() + 10000 });
 
 			const result = await apiCaller.request('http://test.url');
 			expect(fetchMock).not.toHaveBeenCalled();
 			expect(result).toEqual(cachedData);
 		});
 
+		test('returned data is a copy: mutating it does not alter the cache', async () => {
+			apiCaller.cache.set('http://test.url', { data: { a: 1 }, expires: Date.now() + 10000 });
+
+			const first = await apiCaller.request('http://test.url');
+			first.a = 999;
+			first.extra = true;
+
+			const second = await apiCaller.request('http://test.url');
+			expect(second).toEqual({ a: 1 });
+		});
+
 		test('clears cache and fetches if cache is expired', async () => {
 			const mockData = { fresh: true };
-			apiCaller.cache.set('http://test.url', {
-				data: { cached: true },
-				expires: Date.now() - 10000
-			});
-			fetchMock.mockResolvedValue({
-				status: 200,
-				ok: true,
-				json: jest.fn().mockResolvedValue(mockData),
-				headers: { get: jest.fn().mockReturnValue(null) }
-			});
+			apiCaller.cache.set('http://test.url', { data: { cached: true }, expires: Date.now() - 10000 });
+			fetchMock.mockResolvedValue(okResponse(mockData));
 
 			const result = await apiCaller.request('http://test.url');
 			expect(fetchMock).toHaveBeenCalled();
 			expect(result).toEqual(mockData);
-			expect(apiCaller.cache.has('http://test.url')).toBe(false); 
+			expect(apiCaller.cache.has('http://test.url')).toBe(false);
 		});
 
-		test('throws error if response is not ok', async () => {
+		test('deduplicates concurrent identical requests', async () => {
+			fetchMock.mockResolvedValue(okResponse({ ok: 1 }));
+
+			const [a, b] = await Promise.all([
+				apiCaller.request('http://test.url'),
+				apiCaller.request('http://test.url')
+			]);
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+			expect(a).toEqual({ ok: 1 });
+			expect(b).toEqual({ ok: 1 });
+			expect(a).not.toBe(b);
+		});
+
+		test('throws a WynnApiError with status and body if response is not ok', async () => {
 			fetchMock.mockResolvedValue({
 				status: 404,
 				statusText: 'Not Found',
 				ok: false,
-				json: jest.fn().mockResolvedValue({ Error: 'Custom Error Message' })
+				json: jest.fn().mockResolvedValue({ Error: 'Custom Error Message' }),
+				headers: headersFrom()
 			});
 
-			await expect(apiCaller.request('http://test.url')).rejects.toThrow('Error: 404 Not Found: Custom Error Message');
+			const error = await apiCaller.request('http://test.url').catch(e => e);
+			expect(error).toBeInstanceOf(WynnApiError);
+			expect(error.message).toBe('404 Not Found: Custom Error Message');
+			expect(error.status).toBe(404);
+			expect(error.url).toBe('http://test.url');
+			expect(error.body).toEqual({ Error: 'Custom Error Message' });
+		});
+
+		test('wraps network errors in a WynnApiError', async () => {
+			fetchMock.mockRejectedValue(new TypeError('fetch failed'));
+
+			const error = await apiCaller.request('http://test.url').catch(e => e);
+			expect(error).toBeInstanceOf(WynnApiError);
+			expect(error.status).toBeNull();
+			expect(error.message).toContain('fetch failed');
+		});
+
+		test('reports timeouts explicitly', async () => {
+			const timeoutError = new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+			fetchMock.mockRejectedValue(timeoutError);
+
+			await expect(apiCaller.request('http://test.url')).rejects.toThrow('Request timed out after 10000ms');
+		});
+
+		test('does not log requests by default', async () => {
+			const spy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+			const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+			fetchMock.mockResolvedValue(okResponse({}));
+
+			await apiCaller.request('http://test.url');
+			expect(spy).not.toHaveBeenCalled();
+			expect(logSpy).not.toHaveBeenCalled();
+			spy.mockRestore();
+			logSpy.mockRestore();
+		});
+
+		test('logs requests when debug is enabled', async () => {
+			const spy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+			const debugCaller = new ApiCaller({ fetch: fetchMock, debug: true });
+			fetchMock.mockResolvedValue(okResponse({}));
+
+			await debugCaller.request('http://test.url');
+			expect(spy).toHaveBeenCalled();
+			spy.mockRestore();
 		});
 
 		test('caches response if cacheTime option is provided', async () => {
 			const mockData = { data: 'test' };
-			fetchMock.mockResolvedValue({
-				status: 200,
-				ok: true,
-				json: jest.fn().mockResolvedValue(mockData),
-				headers: { get: jest.fn().mockReturnValue(null) }
-			});
+			fetchMock.mockResolvedValue(okResponse(mockData));
 
 			await apiCaller.request('http://test.url', { cacheTime: 10 });
-			expect(apiCaller.cache.has('http://test.url')).toBe(true);
 			expect(apiCaller.cache.get('http://test.url').data).toEqual(mockData);
 		});
 
-		test('caches response using cache-control header without Age', async () => {
-			const mockData = { data: 'test' };
-			fetchMock.mockResolvedValue({
-				status: 200,
-				ok: true,
-				json: jest.fn().mockResolvedValue(mockData),
-				headers: { get: jest.fn((name) => {
-					if (name === 'cache-control') return 'max-age=60';
-					return null;
-				}) }
-			});
+		test('caches response using cache-control header', async () => {
+			fetchMock.mockResolvedValue(okResponse({}, { 'cache-control': 'public, max-age=60' }));
 
 			await apiCaller.request('http://test.url');
 			expect(apiCaller.cache.has('http://test.url')).toBe(true);
 		});
 
-		test('caches response using cache-control header if available', async () => {
-			const mockData = { data: 'test' };
-			fetchMock.mockResolvedValue({
-				status: 200,
-				ok: true,
-				json: jest.fn().mockResolvedValue(mockData),
-				headers: { get: jest.fn((name) => {
-					if (name === 'cache-control') return 'max-age=60';
-					if (name === 'Age') return '10';
-					return null;
-				}) }
-			});
-
-			await apiCaller.request('http://test.url');
-			expect(apiCaller.cache.has('http://test.url')).toBe(true);
-		});
-
-		test('handles 429 rate limit without Retry-After correctly', async () => {
+		test('subtracts the Age header from max-age', async () => {
 			jest.useFakeTimers();
-			const mockData = { success: true };
-			
-			fetchMock
-				.mockResolvedValueOnce({
-					status: 429,
-					ok: false,
-					headers: { get: jest.fn().mockReturnValue(null) } // No Retry-After
-				})
-				.mockResolvedValueOnce({
-					status: 200,
-					ok: true,
-					json: jest.fn().mockResolvedValue(mockData),
-					headers: { get: jest.fn().mockReturnValue(null) }
-				});
-
-			const promise = apiCaller.request('http://test.url');
-			
-			await Promise.resolve();
-			await Promise.resolve();
-			
-			jest.advanceTimersByTime(65000);
-
-			const result = await promise;
-			expect(fetchMock).toHaveBeenCalledTimes(2);
-			expect(result).toEqual(mockData);
-		});
-
-		test('handles 429 rate limit correctly', async () => {
-			jest.useFakeTimers();
-			const mockData = { success: true };
-			
-			fetchMock
-				.mockResolvedValueOnce({
-					status: 429,
-					ok: false,
-					headers: { get: jest.fn().mockReturnValue('2') } // Retry-After 2 seconds
-				})
-				.mockResolvedValueOnce({
-					status: 200,
-					ok: true,
-					json: jest.fn().mockResolvedValue(mockData),
-					headers: { get: jest.fn().mockReturnValue(null) }
-				});
-
-			const promise = apiCaller.request('http://test.url');
-			
-			await Promise.resolve();
-			await Promise.resolve();
-			
-			jest.advanceTimersByTime(3500);
-
-			const result = await promise;
-			expect(fetchMock).toHaveBeenCalledTimes(2);
-			expect(result).toEqual(mockData);
-		});
-		
-		test('respects internal rate limit (120 req / minute)', async () => {
-			jest.useFakeTimers();
-			
 			const now = Date.now();
 			jest.setSystemTime(now);
-			apiCaller.rateLimit = 120;
+			fetchMock.mockResolvedValue(okResponse({}, { 'cache-control': 'max-age=60', 'age': '10' }));
 
-			for (let i = 0; i < 120; i++) {
-				apiCaller.requestTimestamps['SHARED'].push(now - 30000); // 30 seconds ago
-			}
-			
-			const mockData = { success: true };
-			fetchMock.mockResolvedValue({
-				status: 200,
-				ok: true,
-				json: jest.fn().mockResolvedValue(mockData),
-				headers: { get: jest.fn().mockReturnValue(null) }
-			});
+			await apiCaller.request('http://test.url');
+			expect(apiCaller.cache.get('http://test.url').expires).toBe(now + 50000);
+		});
 
-			const promise = apiCaller.request('http://test.url');
-			
-			await Promise.resolve();
-			
-			jest.advanceTimersByTime(35000); 
-			
-			const result = await promise;
-			expect(fetchMock).toHaveBeenCalledTimes(1);
-			expect(result).toEqual(mockData);
+		test('does not cache when Age exceeds max-age', async () => {
+			fetchMock.mockResolvedValue(okResponse({}, { 'cache-control': 'max-age=60', 'age': '120' }));
+
+			await apiCaller.request('http://test.url');
+			expect(apiCaller.cache.has('http://test.url')).toBe(false);
+		});
+
+		test('clearCache empties the cache', () => {
+			apiCaller.cache.set('url', { data: 1, expires: Date.now() + 1000 });
+			apiCaller.clearCache();
+			expect(apiCaller.cache.size).toBe(0);
 		});
 	});
 
-	describe('Cache Memory Management', () => {
-		let apiCaller;
+	describe('rate limiting', () => {
+		test('retries after 429 without Retry-After (60s default)', async () => {
+			jest.useFakeTimers();
+			fetchMock
+				.mockResolvedValueOnce({ status: 429, ok: false, headers: headersFrom() })
+				.mockResolvedValueOnce(okResponse({ success: true }));
 
-		beforeEach(() => {
-			apiCaller = ApiCaller.getInstance();
+			const promise = apiCaller.request('http://test.url');
+			await jest.advanceTimersByTimeAsync(65000);
+
+			await expect(promise).resolves.toEqual({ success: true });
+			expect(fetchMock).toHaveBeenCalledTimes(2);
 		});
 
-		test('sweepCache should remove expired items', () => {
-			apiCaller.cache.set('url1', { data: 1, expires: Date.now() - 1000 }); // Expired
-			apiCaller.cache.set('url2', { data: 2, expires: Date.now() + 10000 }); // Valid
+		test('retries after 429 using Retry-After seconds', async () => {
+			jest.useFakeTimers();
+			fetchMock
+				.mockResolvedValueOnce({ status: 429, ok: false, headers: headersFrom({ 'Retry-After': '2' }) })
+				.mockResolvedValueOnce(okResponse({ success: true }));
+
+			const promise = apiCaller.request('http://test.url');
+			await jest.advanceTimersByTimeAsync(3500);
+
+			await expect(promise).resolves.toEqual({ success: true });
+			expect(fetchMock).toHaveBeenCalledTimes(2);
+		});
+
+		test('does not hot-loop on a non-numeric Retry-After', async () => {
+			jest.useFakeTimers();
+			fetchMock
+				.mockResolvedValueOnce({ status: 429, ok: false, headers: headersFrom({ 'Retry-After': 'garbage' }) })
+				.mockResolvedValueOnce(okResponse({ success: true }));
+
+			const promise = apiCaller.request('http://test.url');
+			await jest.advanceTimersByTimeAsync(5000);
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+
+			await jest.advanceTimersByTimeAsync(60000);
+			await expect(promise).resolves.toEqual({ success: true });
+		});
+
+		test('gives up after maxRetries 429 responses', async () => {
+			jest.useFakeTimers();
+			const caller = new ApiCaller({ fetch: fetchMock, maxRetries: 2 });
+			fetchMock.mockResolvedValue({ status: 429, ok: false, headers: headersFrom({ 'Retry-After': '1' }) });
+
+			const promise = caller.request('http://test.url').catch(e => e);
+			await jest.advanceTimersByTimeAsync(10000);
+
+			const error = await promise;
+			expect(error).toBeInstanceOf(WynnApiError);
+			expect(error.status).toBe(429);
+			expect(fetchMock).toHaveBeenCalledTimes(3);
+		});
+
+		test('respects internal rate limit', async () => {
+			jest.useFakeTimers();
+			const now = Date.now();
+			jest.setSystemTime(now);
+			apiCaller.rateLimits.SHARED = 120;
+			for (let i = 0; i < 120; i++) {
+				apiCaller.requestTimestamps.SHARED.push(now - 30000);
+			}
+			fetchMock.mockResolvedValue(okResponse({ success: true }));
+
+			const promise = apiCaller.request('http://test.url');
+			await jest.advanceTimersByTimeAsync(1000);
+			expect(fetchMock).not.toHaveBeenCalled();
+
+			await jest.advanceTimersByTimeAsync(35000);
+			await expect(promise).resolves.toEqual({ success: true });
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+		});
+
+		test('updates the limit of the bucket reported by the API only', async () => {
+			fetchMock.mockResolvedValue(okResponse({}, {
+				'ratelimit-bucket': 'player',
+				'ratelimit-limit': '80',
+				'ratelimit-remaining': '79',
+				'ratelimit-reset': '60'
+			}));
+
+			await apiCaller.request(`${apiCaller.url}/player/Salted`);
+			expect(apiCaller.rateLimits.PLAYER).toBe(80);
+			expect(apiCaller.rateLimits.GUILD).toBe(50);
+		});
+
+		test('classifies URLs into buckets', () => {
+			expect(apiCaller.getBucket(`${apiCaller.url}/player/x`)).toBe('PLAYER');
+			expect(apiCaller.getBucket(`${apiCaller.url}/guild/x`)).toBe('GUILD');
+			expect(apiCaller.getBucket(`${apiCaller.url}/item/search/x`)).toBe('ITEMS');
+			expect(apiCaller.getBucket(`${apiCaller.url}/leaderboards/x`)).toBe('LEADERBOARDS');
+			expect(apiCaller.getBucket(`${apiCaller.url}/map/quests`)).toBe('MAP');
+			expect(apiCaller.getBucket(`${apiCaller.url}/search/x`)).toBe('SHARED');
+		});
+	});
+
+	describe('header parsing helpers', () => {
+		test('parseMaxAge', () => {
+			expect(parseMaxAge('max-age=60')).toBe(60);
+			expect(parseMaxAge('public, max-age=300')).toBe(300);
+			expect(parseMaxAge('s-maxage=10, max-age=60')).toBe(60);
+			expect(parseMaxAge('no-store')).toBe(0);
+			expect(parseMaxAge(null)).toBe(0);
+		});
+
+		test('parseRetryAfter', () => {
+			expect(parseRetryAfter('5')).toBe(5000);
+			expect(parseRetryAfter(null)).toBeNull();
+			expect(parseRetryAfter('garbage')).toBeNull();
+			const future = new Date(Date.now() + 30000).toUTCString();
+			expect(parseRetryAfter(future)).toBeGreaterThan(25000);
+		});
+	});
+
+	describe('cache memory management', () => {
+		test('sweepCache removes expired items', () => {
+			apiCaller.cache.set('url1', { data: 1, expires: Date.now() - 1000 });
+			apiCaller.cache.set('url2', { data: 2, expires: Date.now() + 10000 });
 
 			apiCaller.sweepCache();
 
 			expect(apiCaller.cache.has('url1')).toBe(false);
 			expect(apiCaller.cache.has('url2')).toBe(true);
-			expect(apiCaller.cache.size).toBe(1);
 		});
 
-		test('sweepCache should remove oldest items if cache size exceeds 500', () => {
-			// Add 600 valid items
+		test('sweepCache removes oldest items if cache size exceeds 500', () => {
 			for (let i = 0; i < 600; i++) {
 				apiCaller.cache.set(`url${i}`, { data: i, expires: Date.now() + 10000 });
 			}
 
-			expect(apiCaller.cache.size).toBe(600);
 			apiCaller.sweepCache();
 
 			expect(apiCaller.cache.size).toBe(500);
-			// The first 100 items (oldest inserted) should be removed
-			expect(apiCaller.cache.has('url0')).toBe(false);
 			expect(apiCaller.cache.has('url99')).toBe(false);
 			expect(apiCaller.cache.has('url100')).toBe(true);
-			expect(apiCaller.cache.has('url599')).toBe(true);
 		});
 
-		test('request should trigger sweepCache if cache size > 100', async () => {
-			// Mock sweepCache
+		test('request triggers sweepCache only if cache size > 100', async () => {
 			const sweepSpy = jest.spyOn(apiCaller, 'sweepCache');
-			
-			fetchMock.mockResolvedValue({
-				status: 200,
-				ok: true,
-				json: jest.fn().mockResolvedValue({}),
-				headers: { get: jest.fn().mockReturnValue(null) }
-			});
+			fetchMock.mockResolvedValue(okResponse({}));
 
-			// Add 101 valid items
-			for (let i = 0; i < 101; i++) {
-				apiCaller.cache.set(`url${i}`, { data: i, expires: Date.now() + 10000 });
-			}
-
-			await apiCaller.request('http://new.url');
-
-			expect(sweepSpy).toHaveBeenCalledTimes(1);
-		});
-
-		test('request should not trigger sweepCache if cache size <= 100', async () => {
-			const sweepSpy = jest.spyOn(apiCaller, 'sweepCache');
-			
-			fetchMock.mockResolvedValue({
-				status: 200,
-				ok: true,
-				json: jest.fn().mockResolvedValue({}),
-				headers: { get: jest.fn().mockReturnValue(null) }
-			});
-
-			// Add 100 items
 			for (let i = 0; i < 100; i++) {
 				apiCaller.cache.set(`url${i}`, { data: i, expires: Date.now() + 10000 });
 			}
-
 			await apiCaller.request('http://new.url');
-
 			expect(sweepSpy).not.toHaveBeenCalled();
+
+			apiCaller.cache.set('url100', { data: 100, expires: Date.now() + 10000 });
+			await apiCaller.request('http://new2.url');
+			expect(sweepSpy).toHaveBeenCalledTimes(1);
 		});
 	});
 });

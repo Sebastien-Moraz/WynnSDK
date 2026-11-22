@@ -1,8 +1,6 @@
 import GuildController from "../src/modules/GuildController.js";
-import ApiCaller from "../src/modules/ApiCaller.js";
 import {beforeEach, describe, expect, jest, test} from "@jest/globals";
 
-jest.mock("../src/modules/ApiCaller.js");
 
 describe("GuildController", () => {
 	let guildController;
@@ -14,8 +12,7 @@ describe("GuildController", () => {
 			url: "http://test-api.com",
 			request: jest.fn()
 		};
-		ApiCaller.getInstance = jest.fn().mockReturnValue(mockApiCaller);
-		guildController = new GuildController();
+		guildController = new GuildController(mockApiCaller);
 	});
 	
 	test("getGuild should call API correctly", async () => {
@@ -177,4 +174,14 @@ describe("GuildController", () => {
 			"http://test-api.com/guild/list/territory"
 		);
 	});
-})
+
+	test('encodes guild names and rejects invalid identifiers', async () => {
+		mockApiCaller.request.mockResolvedValue({});
+		await guildController.getGuild('Forgotten Library');
+		expect(mockApiCaller.request).toHaveBeenCalledWith(
+			'http://test-api.com/guild/Forgotten%20Library?identifier=username'
+		);
+		await expect(guildController.getGuild('X', 'evil')).rejects.toThrow(TypeError);
+		await expect(guildController.getGuildList('username')).rejects.toThrow(TypeError);
+	});
+});
